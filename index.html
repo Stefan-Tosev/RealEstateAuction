@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bg">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,9 +12,9 @@
 
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body>
+<body class="lang-bg">
 
-  <a class="skip-link" href="#main">Skip to content</a>
+  <a class="skip-link" href="#main"><span data-bg>Към съдържанието</span><span data-en>Skip to content</span></a>
 
   <header class="site-header">
     <div class="container header-inner">
@@ -24,15 +24,19 @@
       </a>
 
       <nav class="main-nav" aria-label="Primary">
-        <a href="#lots">Current Lots</a>
-        <a href="#process">How It Works</a>
-        <a href="#stats">Results</a>
-        <a href="#testimonials">Testimonials</a>
+        <a href="#lots"><span data-bg>Текущи Лотове</span><span data-en>Current Lots</span></a>
+        <a href="#process"><span data-bg>Как Работи</span><span data-en>How It Works</span></a>
+        <a href="#stats"><span data-bg>Резултати</span><span data-en>Results</span></a>
+        <a href="#testimonials"><span data-bg>Отзиви</span><span data-en>Testimonials</span></a>
       </nav>
 
       <div class="header-actions">
-        <a class="btn btn-ghost" href="#cta">Sign In</a>
-        <a class="btn btn-brass" href="#cta">Register to Bid</a>
+        <div class="lang-toggle" role="group" aria-label="Language / Език">
+          <button type="button" class="lang-btn" data-lang="bg" aria-pressed="true">БГ</button>
+          <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
+        </div>
+        <a class="btn btn-ghost" href="#cta"><span data-bg>Вход</span><span data-en>Sign In</span></a>
+        <a class="btn btn-brass" href="#cta"><span data-bg>Регистрация за Наддаване</span><span data-en>Register to Bid</span></a>
       </div>
 
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav-mobile" aria-label="Toggle menu">
@@ -41,12 +45,16 @@
     </div>
 
     <nav id="main-nav-mobile" class="mobile-nav" aria-label="Primary mobile">
-      <a href="#lots">Current Lots</a>
-      <a href="#process">How It Works</a>
-      <a href="#stats">Results</a>
-      <a href="#testimonials">Testimonials</a>
-      <a class="btn btn-ghost" href="#cta">Sign In</a>
-      <a class="btn btn-brass" href="#cta">Register to Bid</a>
+      <a href="#lots"><span data-bg>Текущи Лотове</span><span data-en>Current Lots</span></a>
+      <a href="#process"><span data-bg>Как Работи</span><span data-en>How It Works</span></a>
+      <a href="#stats"><span data-bg>Резултати</span><span data-en>Results</span></a>
+      <a href="#testimonials"><span data-bg>Отзиви</span><span data-en>Testimonials</span></a>
+      <div class="lang-toggle lang-toggle-mobile" role="group" aria-label="Language / Език">
+        <button type="button" class="lang-btn" data-lang="bg" aria-pressed="true">БГ</button>
+        <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <a class="btn btn-ghost" href="#cta"><span data-bg>Вход</span><span data-en>Sign In</span></a>
+      <a class="btn btn-brass" href="#cta"><span data-bg>Регистрация за Наддаване</span><span data-en>Register to Bid</span></a>
     </nav>
   </header>
 
@@ -55,25 +63,23 @@
     <section class="hero" id="top">
       <div class="container hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">Est. Auctions for Exceptional Property</p>
-          <h1>Own it by <em>gavel</em>, not by guesswork.</h1>
+          <p class="eyebrow"><span data-bg>Аукциони за Изключителни Имоти</span><span data-en>Est. Auctions for Exceptional Property</span></p>
+          <h1><span data-bg>Притежавайте го с <em>чука</em>, а не с догадки.</span><span data-en>Own it by <em>gavel</em>, not by guesswork.</span></h1>
           <p class="hero-lede">
-            Auctio House runs fixed-date, publicly transparent auctions for rare estates,
-            architectural homes, and land. Every bid is visible. Every close is escrow-backed.
-            No endless negotiations — just a clock, a reserve, and the winning bid.
+            <span data-bg>Auctio House провежда публични и прозрачни аукциони с фиксирана дата за редки имоти, авторска архитектура и земя. Всяка оферта е видима. Всяко приключване е гарантирано от ескроу сметка. Без безкрайни преговори — само часовник, резервна цена и печеливша оферта.</span><span data-en>Auctio House runs fixed-date, publicly transparent auctions for rare estates, architectural homes, and land. Every bid is visible. Every close is escrow-backed. No endless negotiations — just a clock, a reserve, and the winning bid.</span>
           </p>
           <div class="hero-actions">
-            <a class="btn btn-brass btn-lg" href="#lots">View Current Lots</a>
-            <a class="btn btn-outline btn-lg" href="#process">How Bidding Works</a>
+            <a class="btn btn-brass btn-lg" href="#lots"><span data-bg>Разгледай Лотовете</span><span data-en>View Current Lots</span></a>
+            <a class="btn btn-outline btn-lg" href="#process"><span data-bg>Как се Наддава</span><span data-en>How Bidding Works</span></a>
           </div>
           <dl class="hero-trust">
             <div>
-              <dt>Verified bidders only</dt>
-              <dd>Proof of funds required before paddle issue</dd>
+              <dt><span data-bg>Само Одобрени Наддаващи</span><span data-en>Verified bidders only</span></dt>
+              <dd><span data-bg>Изисква се доказателство за средства преди издаване на номер за наддаване</span><span data-en>Proof of funds required before paddle issue</span></dd>
             </div>
             <div>
-              <dt>Escrow-backed close</dt>
-              <dd>Funds secured the moment the gavel falls</dd>
+              <dt><span data-bg>Приключване с Ескроу Гаранция</span><span data-en>Escrow-backed close</span></dt>
+              <dd><span data-bg>Средствата се обезпечават в момента на удара с чука</span><span data-en>Funds secured the moment the gavel falls</span></dd>
             </div>
           </dl>
         </div>
@@ -81,26 +87,26 @@
         <div class="hero-lot">
           <article class="lot-card lot-card-featured" data-close="2026-08-02T19:00:00-04:00">
             <div class="lot-card-media">
-              <span class="lot-tag">LOT 011 · Featured</span>
+              <span class="lot-tag"><span data-bg>ЛОТ 011 · Специална Оферта</span><span data-en>LOT 011 · Featured</span></span>
               <div class="lot-image lot-image-1" role="img" aria-label="The Marchetti Estate, a stone and glass villa at dusk"></div>
             </div>
             <div class="lot-card-body">
               <h2 class="lot-title">The Marchetti Estate</h2>
               <p class="lot-location">Hillcrest Ridge, Napa Valley</p>
               <div class="lot-meta">
-                <span>6 Bed</span><span>7 Bath</span><span>9,400 sqft</span>
+                <span><span data-bg>6 Спални</span><span data-en>6 Bed</span></span><span><span data-bg>7 Бани</span><span data-en>7 Bath</span></span><span><span data-bg>9400 кв. фута</span><span data-en>9,400 sqft</span></span>
               </div>
               <div class="lot-price-row">
                 <div>
-                  <span class="lot-price-label">Current Bid</span>
+                  <span class="lot-price-label"><span data-bg>Текуща Оферта</span><span data-en>Current Bid</span></span>
                   <span class="lot-price">$4,150,000</span>
                 </div>
                 <div class="lot-countdown-wrap">
-                  <span class="lot-price-label">Closes In</span>
+                  <span class="lot-price-label"><span data-bg>Приключва След</span><span data-en>Closes In</span></span>
                   <span class="lot-countdown" data-countdown>--:--:--:--</span>
                 </div>
               </div>
-              <a class="btn btn-brass btn-full" href="#cta">Register to Bid on Lot 011</a>
+              <a class="btn btn-brass btn-full" href="#cta"><span data-bg>Регистрирай се за Лот 011</span><span data-en>Register to Bid on Lot 011</span></a>
             </div>
           </article>
         </div>
@@ -109,33 +115,32 @@
 
     <section class="process" id="process">
       <div class="container">
-        <p class="eyebrow eyebrow-center">The Process</p>
-        <h2 class="section-title center">Four steps. One fixed close date.</h2>
+        <p class="eyebrow eyebrow-center"><span data-bg>Процесът</span><span data-en>The Process</span></p>
+        <h2 class="section-title center"><span data-bg>Четири стъпки. Една фиксирана дата за приключване.</span><span data-en>Four steps. One fixed close date.</span></h2>
         <p class="section-lede center">
-          No open-ended offer chains. Every Auctio House sale runs on a published timeline,
-          the same for every bidder.
+          <span data-bg>Без безкрайни вериги от оферти. Всяка продажба в Auctio House следва обявен график, еднакъв за всеки наддаващ.</span><span data-en>No open-ended offer chains. Every Auctio House sale runs on a published timeline, the same for every bidder.</span>
         </p>
 
         <ol class="steps">
           <li class="step">
             <span class="step-number">01</span>
-            <h3>Register</h3>
-            <p>Submit proof of funds and identity verification. Approved bidders receive a paddle number and full due-diligence packet.</p>
+            <h3><span data-bg>Регистрация</span><span data-en>Register</span></h3>
+            <p><span data-bg>Подайте доказателство за средства и верификация на самоличност. Одобрените наддаващи получават номер за наддаване и пълен пакет с документация за имота.</span><span data-en>Submit proof of funds and identity verification. Approved bidders receive a paddle number and full due-diligence packet.</span></p>
           </li>
           <li class="step">
             <span class="step-number">02</span>
-            <h3>Inspect</h3>
-            <p>Attend a private showing or virtual walkthrough. Title, survey, and inspection reports are published for every lot before bidding opens.</p>
+            <h3><span data-bg>Оглед</span><span data-en>Inspect</span></h3>
+            <p><span data-bg>Присъствайте на частен оглед или виртуална обиколка. Нотариални актове, скици и доклади от инспекция се публикуват за всеки лот преди началото на наддаването.</span><span data-en>Attend a private showing or virtual walkthrough. Title, survey, and inspection reports are published for every lot before bidding opens.</span></p>
           </li>
           <li class="step">
             <span class="step-number">03</span>
-            <h3>Bid</h3>
-            <p>Bid live, in the open. Every offer and paddle number is visible on the lot page in real time — no sealed bids, no back-room offers.</p>
+            <h3><span data-bg>Наддаване</span><span data-en>Bid</span></h3>
+            <p><span data-bg>Наддавайте на живо, публично. Всяка оферта и номер за наддаване са видими на страницата на лота в реално време — без запечатани оферти, без сделки зад кулисите.</span><span data-en>Bid live, in the open. Every offer and paddle number is visible on the lot page in real time — no sealed bids, no back-room offers.</span></p>
           </li>
           <li class="step">
             <span class="step-number">04</span>
-            <h3>Close</h3>
-            <p>Highest bid past reserve wins at the gavel. Funds are released from escrow and closing is coordinated within 30 days.</p>
+            <h3><span data-bg>Приключване</span><span data-en>Close</span></h3>
+            <p><span data-bg>Най-високата оферта над резервната цена печели при удара с чука. Средствата се освобождават от ескроу сметката и приключването се координира до 30 дни.</span><span data-en>Highest bid past reserve wins at the gavel. Funds are released from escrow and closing is coordinated within 30 days.</span></p>
           </li>
         </ol>
       </div>
@@ -145,116 +150,116 @@
       <div class="container">
         <div class="lots-header">
           <div>
-            <p class="eyebrow">Live &amp; Upcoming</p>
-            <h2 class="section-title">Current Lots</h2>
+            <p class="eyebrow"><span data-bg>На Живо и Предстоящи</span><span data-en>Live &amp; Upcoming</span></p>
+            <h2 class="section-title"><span data-bg>Текущи Лотове</span><span data-en>Current Lots</span></h2>
           </div>
-          <p class="lots-count"><span data-lot-count>6</span> lots open for bidding</p>
+          <p class="lots-count"><span data-lot-count>6</span> <span data-bg>лота отворени за наддаване</span><span data-en>lots open for bidding</span></p>
         </div>
 
         <div class="lots-grid">
 
           <article class="lot-card" data-close="2026-07-26T18:00:00-04:00">
             <div class="lot-card-media">
-              <span class="lot-tag">LOT 012</span>
+              <span class="lot-tag"><span data-bg>ЛОТ 012</span><span data-en>LOT 012</span></span>
               <div class="lot-image lot-image-2" role="img" aria-label="Cliffside Modern, a glass cantilevered home over the coast"></div>
-              <span class="lot-status lot-status-closing">Closing Soon</span>
+              <span class="lot-status lot-status-closing"><span data-bg>Скоро Приключва</span><span data-en>Closing Soon</span></span>
             </div>
             <div class="lot-card-body">
               <h3 class="lot-title">Cliffside Modern</h3>
               <p class="lot-location">Big Sur, California</p>
-              <div class="lot-meta"><span>4 Bed</span><span>5 Bath</span><span>5,200 sqft</span></div>
+              <div class="lot-meta"><span><span data-bg>4 Спални</span><span data-en>4 Bed</span></span><span><span data-bg>5 Бани</span><span data-en>5 Bath</span></span><span><span data-bg>5200 кв. фута</span><span data-en>5,200 sqft</span></span></div>
               <div class="lot-price-row">
-                <div><span class="lot-price-label">Current Bid</span><span class="lot-price">$6,820,000</span></div>
-                <div class="lot-countdown-wrap"><span class="lot-price-label">Closes In</span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
+                <div><span class="lot-price-label"><span data-bg>Текуща Оферта</span><span data-en>Current Bid</span></span><span class="lot-price">$6,820,000</span></div>
+                <div class="lot-countdown-wrap"><span class="lot-price-label"><span data-bg>Приключва След</span><span data-en>Closes In</span></span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
               </div>
-              <a class="btn btn-outline btn-full" href="#cta">View Lot 012</a>
+              <a class="btn btn-outline btn-full" href="#cta"><span data-bg>Виж Лот 012</span><span data-en>View Lot 012</span></a>
             </div>
           </article>
 
           <article class="lot-card" data-close="2026-07-30T18:00:00-04:00">
             <div class="lot-card-media">
-              <span class="lot-tag">LOT 013</span>
+              <span class="lot-tag"><span data-bg>ЛОТ 013</span><span data-en>LOT 013</span></span>
               <div class="lot-image lot-image-3" role="img" aria-label="Pemberton Manor, a brick Georgian estate with formal gardens"></div>
             </div>
             <div class="lot-card-body">
               <h3 class="lot-title">Pemberton Manor</h3>
               <p class="lot-location">Litchfield County, Connecticut</p>
-              <div class="lot-meta"><span>8 Bed</span><span>9 Bath</span><span>12,100 sqft</span></div>
+              <div class="lot-meta"><span><span data-bg>8 Спални</span><span data-en>8 Bed</span></span><span><span data-bg>9 Бани</span><span data-en>9 Bath</span></span><span><span data-bg>12 100 кв. фута</span><span data-en>12,100 sqft</span></span></div>
               <div class="lot-price-row">
-                <div><span class="lot-price-label">Current Bid</span><span class="lot-price">$3,275,000</span></div>
-                <div class="lot-countdown-wrap"><span class="lot-price-label">Closes In</span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
+                <div><span class="lot-price-label"><span data-bg>Текуща Оферта</span><span data-en>Current Bid</span></span><span class="lot-price">$3,275,000</span></div>
+                <div class="lot-countdown-wrap"><span class="lot-price-label"><span data-bg>Приключва След</span><span data-en>Closes In</span></span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
               </div>
-              <a class="btn btn-outline btn-full" href="#cta">View Lot 013</a>
+              <a class="btn btn-outline btn-full" href="#cta"><span data-bg>Виж Лот 013</span><span data-en>View Lot 013</span></a>
             </div>
           </article>
 
           <article class="lot-card" data-close="2026-08-05T18:00:00-04:00">
             <div class="lot-card-media">
-              <span class="lot-tag">LOT 014</span>
+              <span class="lot-tag"><span data-bg>ЛОТ 014</span><span data-en>LOT 014</span></span>
               <div class="lot-image lot-image-4" role="img" aria-label="Silo Loft Collection, converted industrial lofts"></div>
-              <span class="lot-status lot-status-new">New Listing</span>
+              <span class="lot-status lot-status-new"><span data-bg>Нова Обява</span><span data-en>New Listing</span></span>
             </div>
             <div class="lot-card-body">
               <h3 class="lot-title">Silo Loft Collection</h3>
               <p class="lot-location">River North, Chicago</p>
-              <div class="lot-meta"><span>3 Units</span><span>2 Bath ea.</span><span>2,400 sqft ea.</span></div>
+              <div class="lot-meta"><span><span data-bg>3 Апартамента</span><span data-en>3 Units</span></span><span><span data-bg>2 Бани всеки</span><span data-en>2 Bath ea.</span></span><span><span data-bg>2400 кв. фута всеки</span><span data-en>2,400 sqft ea.</span></span></div>
               <div class="lot-price-row">
-                <div><span class="lot-price-label">Opening Bid</span><span class="lot-price">$980,000</span></div>
-                <div class="lot-countdown-wrap"><span class="lot-price-label">Closes In</span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
+                <div><span class="lot-price-label"><span data-bg>Начална Оферта</span><span data-en>Opening Bid</span></span><span class="lot-price">$980,000</span></div>
+                <div class="lot-countdown-wrap"><span class="lot-price-label"><span data-bg>Приключва След</span><span data-en>Closes In</span></span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
               </div>
-              <a class="btn btn-outline btn-full" href="#cta">View Lot 014</a>
+              <a class="btn btn-outline btn-full" href="#cta"><span data-bg>Виж Лот 014</span><span data-en>View Lot 014</span></a>
             </div>
           </article>
 
           <article class="lot-card" data-close="2026-08-09T18:00:00-04:00">
             <div class="lot-card-media">
-              <span class="lot-tag">LOT 015</span>
+              <span class="lot-tag"><span data-bg>ЛОТ 015</span><span data-en>LOT 015</span></span>
               <div class="lot-image lot-image-5" role="img" aria-label="Vale House, a mid-century home nestled in a wooded valley"></div>
             </div>
             <div class="lot-card-body">
               <h3 class="lot-title">Vale House</h3>
               <p class="lot-location">Ojai Valley, California</p>
-              <div class="lot-meta"><span>5 Bed</span><span>4 Bath</span><span>4,650 sqft</span></div>
+              <div class="lot-meta"><span><span data-bg>5 Спални</span><span data-en>5 Bed</span></span><span><span data-bg>4 Бани</span><span data-en>4 Bath</span></span><span><span data-bg>4650 кв. фута</span><span data-en>4,650 sqft</span></span></div>
               <div class="lot-price-row">
-                <div><span class="lot-price-label">Current Bid</span><span class="lot-price">$2,410,000</span></div>
-                <div class="lot-countdown-wrap"><span class="lot-price-label">Closes In</span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
+                <div><span class="lot-price-label"><span data-bg>Текуща Оферта</span><span data-en>Current Bid</span></span><span class="lot-price">$2,410,000</span></div>
+                <div class="lot-countdown-wrap"><span class="lot-price-label"><span data-bg>Приключва След</span><span data-en>Closes In</span></span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
               </div>
-              <a class="btn btn-outline btn-full" href="#cta">View Lot 015</a>
+              <a class="btn btn-outline btn-full" href="#cta"><span data-bg>Виж Лот 015</span><span data-en>View Lot 015</span></a>
             </div>
           </article>
 
           <article class="lot-card" data-close="2026-08-15T18:00:00-04:00">
             <div class="lot-card-media">
-              <span class="lot-tag">LOT 016</span>
+              <span class="lot-tag"><span data-bg>ЛОТ 016</span><span data-en>LOT 016</span></span>
               <div class="lot-image lot-image-6" role="img" aria-label="The Obsidian Residence, a black concrete desert home"></div>
-              <span class="lot-status lot-status-new">New Listing</span>
+              <span class="lot-status lot-status-new"><span data-bg>Нова Обява</span><span data-en>New Listing</span></span>
             </div>
             <div class="lot-card-body">
               <h3 class="lot-title">The Obsidian Residence</h3>
               <p class="lot-location">Joshua Tree, California</p>
-              <div class="lot-meta"><span>3 Bed</span><span>3 Bath</span><span>3,100 sqft</span></div>
+              <div class="lot-meta"><span><span data-bg>3 Спални</span><span data-en>3 Bed</span></span><span><span data-bg>3 Бани</span><span data-en>3 Bath</span></span><span><span data-bg>3100 кв. фута</span><span data-en>3,100 sqft</span></span></div>
               <div class="lot-price-row">
-                <div><span class="lot-price-label">Opening Bid</span><span class="lot-price">$1,650,000</span></div>
-                <div class="lot-countdown-wrap"><span class="lot-price-label">Closes In</span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
+                <div><span class="lot-price-label"><span data-bg>Начална Оферта</span><span data-en>Opening Bid</span></span><span class="lot-price">$1,650,000</span></div>
+                <div class="lot-countdown-wrap"><span class="lot-price-label"><span data-bg>Приключва След</span><span data-en>Closes In</span></span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
               </div>
-              <a class="btn btn-outline btn-full" href="#cta">View Lot 016</a>
+              <a class="btn btn-outline btn-full" href="#cta"><span data-bg>Виж Лот 016</span><span data-en>View Lot 016</span></a>
             </div>
           </article>
 
           <article class="lot-card" data-close="2026-08-20T18:00:00-04:00">
             <div class="lot-card-media">
-              <span class="lot-tag">LOT 017</span>
+              <span class="lot-tag"><span data-bg>ЛОТ 017</span><span data-en>LOT 017</span></span>
               <div class="lot-image lot-image-7" role="img" aria-label="Harbor Point, a shingle-style waterfront home"></div>
             </div>
             <div class="lot-card-body">
               <h3 class="lot-title">Harbor Point</h3>
               <p class="lot-location">Camden, Maine</p>
-              <div class="lot-meta"><span>5 Bed</span><span>6 Bath</span><span>6,300 sqft</span></div>
+              <div class="lot-meta"><span><span data-bg>5 Спални</span><span data-en>5 Bed</span></span><span><span data-bg>6 Бани</span><span data-en>6 Bath</span></span><span><span data-bg>6300 кв. фута</span><span data-en>6,300 sqft</span></span></div>
               <div class="lot-price-row">
-                <div><span class="lot-price-label">Current Bid</span><span class="lot-price">$3,890,000</span></div>
-                <div class="lot-countdown-wrap"><span class="lot-price-label">Closes In</span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
+                <div><span class="lot-price-label"><span data-bg>Текуща Оферта</span><span data-en>Current Bid</span></span><span class="lot-price">$3,890,000</span></div>
+                <div class="lot-countdown-wrap"><span class="lot-price-label"><span data-bg>Приключва След</span><span data-en>Closes In</span></span><span class="lot-countdown" data-countdown>--:--:--:--</span></div>
               </div>
-              <a class="btn btn-outline btn-full" href="#cta">View Lot 017</a>
+              <a class="btn btn-outline btn-full" href="#cta"><span data-bg>Виж Лот 017</span><span data-en>View Lot 017</span></a>
             </div>
           </article>
 
@@ -266,40 +271,40 @@
       <div class="container stats-grid">
         <div class="stat">
           <span class="stat-number">$418M</span>
-          <span class="stat-label">Property sold at auction</span>
+          <span class="stat-label"><span data-bg>Продадени имоти на аукцион</span><span data-en>Property sold at auction</span></span>
         </div>
         <div class="stat">
           <span class="stat-number">96%</span>
-          <span class="stat-label">Sell-through rate</span>
+          <span class="stat-label"><span data-bg>Процент успешни продажби</span><span data-en>Sell-through rate</span></span>
         </div>
         <div class="stat">
           <span class="stat-number">2,300+</span>
-          <span class="stat-label">Verified bidders on file</span>
+          <span class="stat-label"><span data-bg>Одобрени наддаващи в базата</span><span data-en>Verified bidders on file</span></span>
         </div>
         <div class="stat">
-          <span class="stat-number">27 days</span>
-          <span class="stat-label">Average time to close</span>
+          <span class="stat-number"><span data-bg>27 дни</span><span data-en>27 days</span></span>
+          <span class="stat-label"><span data-bg>Средно време за приключване</span><span data-en>Average time to close</span></span>
         </div>
       </div>
     </section>
 
     <section class="testimonials" id="testimonials">
       <div class="container">
-        <p class="eyebrow eyebrow-center">In Their Words</p>
-        <h2 class="section-title center">Sellers and buyers, both.</h2>
+        <p class="eyebrow eyebrow-center"><span data-bg>С Техните Думи</span><span data-en>In Their Words</span></p>
+        <h2 class="section-title center"><span data-bg>И продавачи, и купувачи.</span><span data-en>Sellers and buyers, both.</span></h2>
 
         <div class="testimonial-grid">
           <blockquote class="testimonial">
-            <p>“We had a fixed date and a public number. No re-trading, no phantom offers. Sold three days after our appraiser expected — for more.”</p>
-            <cite>— Marguerite D., Seller, Litchfield County</cite>
+            <p><span data-bg>„Имахме фиксирана дата и публичен номер. Без предоговаряне, без фиктивни оферти. Продадохме три дни по-рано от очакваното от нашия оценител — на по-висока цена.“</span><span data-en>“We had a fixed date and a public number. No re-trading, no phantom offers. Sold three days after our appraiser expected — for more.”</span></p>
+            <cite>— Marguerite D., <span data-bg>Продавач</span><span data-en>Seller</span>, Litchfield County</cite>
           </blockquote>
           <blockquote class="testimonial">
-            <p>“I watched every bid land in real time. When I won, escrow already had the funds. Closed in nineteen days.”</p>
-            <cite>— Owen R., Buyer, Lot 006</cite>
+            <p><span data-bg>„Наблюдавах всяка оферта в реално време. Когато спечелих, средствата вече бяха в ескроу сметката. Приключихме за деветнайсет дни.“</span><span data-en>“I watched every bid land in real time. When I won, escrow already had the funds. Closed in nineteen days.”</span></p>
+            <cite>— Owen R., <span data-bg>Купувач</span><span data-en>Buyer</span>, <span data-bg>Лот 006</span><span data-en>Lot 006</span></cite>
           </blockquote>
           <blockquote class="testimonial">
-            <p>“Verification took an hour. After that, it was just me, the clock, and the paddle. Exactly how buying a house should feel.”</p>
-            <cite>— Priya K., Buyer, Lot 009</cite>
+            <p><span data-bg>„Верификацията отне един час. След това останахме само аз, часовникът и номерът за наддаване. Точно както трябва да се усеща купуването на къща.“</span><span data-en>“Verification took an hour. After that, it was just me, the clock, and the paddle. Exactly how buying a house should feel.”</span></p>
+            <cite>— Priya K., <span data-bg>Купувач</span><span data-en>Buyer</span>, <span data-bg>Лот 009</span><span data-en>Lot 009</span></cite>
           </blockquote>
         </div>
       </div>
@@ -307,16 +312,15 @@
 
     <section class="final-cta" id="cta">
       <div class="container final-cta-inner">
-        <p class="eyebrow eyebrow-center">Ready When You Are</p>
-        <h2 class="section-title center">Get your paddle number.</h2>
+        <p class="eyebrow eyebrow-center"><span data-bg>Готови Когато Сте Вие</span><span data-en>Ready When You Are</span></p>
+        <h2 class="section-title center"><span data-bg>Вземете своя номер за наддаване.</span><span data-en>Get your paddle number.</span></h2>
         <p class="section-lede center">
-          Verification is free and typically completed within one business day.
-          Once approved, you can bid on any open lot.
+          <span data-bg>Верификацията е безплатна и обикновено отнема един работен ден. След одобрение можете да наддавате за всеки отворен лот.</span><span data-en>Verification is free and typically completed within one business day. Once approved, you can bid on any open lot.</span>
         </p>
         <form class="cta-form" action="#" method="post">
-          <label class="visually-hidden" for="cta-email">Email address</label>
+          <label class="visually-hidden" for="cta-email"><span data-bg>Имейл адрес</span><span data-en>Email address</span></label>
           <input id="cta-email" type="email" name="email" placeholder="you@email.com" required autocomplete="email" />
-          <button class="btn btn-brass btn-lg" type="submit">Start Verification</button>
+          <button class="btn btn-brass btn-lg" type="submit"><span data-bg>Започни Верификация</span><span data-en>Start Verification</span></button>
         </form>
       </div>
     </section>
@@ -330,32 +334,32 @@
           <span class="logo-mark">AH</span>
           <span class="logo-word">Auctio House</span>
         </a>
-        <p>Fixed-date, transparent auctions for exceptional property.</p>
+        <p><span data-bg>Прозрачни аукциони с фиксирана дата за изключителни имоти.</span><span data-en>Fixed-date, transparent auctions for exceptional property.</span></p>
       </div>
 
       <div class="footer-links">
         <div class="footer-col">
-          <h4>Auctions</h4>
-          <a href="#lots">Current Lots</a>
-          <a href="#process">How It Works</a>
-          <a href="#stats">Results</a>
+          <h4><span data-bg>Аукциони</span><span data-en>Auctions</span></h4>
+          <a href="#lots"><span data-bg>Текущи Лотове</span><span data-en>Current Lots</span></a>
+          <a href="#process"><span data-bg>Как Работи</span><span data-en>How It Works</span></a>
+          <a href="#stats"><span data-bg>Резултати</span><span data-en>Results</span></a>
         </div>
         <div class="footer-col">
-          <h4>Company</h4>
-          <a href="#top">About</a>
-          <a href="#testimonials">Testimonials</a>
-          <a href="#cta">Register</a>
+          <h4><span data-bg>Компания</span><span data-en>Company</span></h4>
+          <a href="#top"><span data-bg>За Нас</span><span data-en>About</span></a>
+          <a href="#testimonials"><span data-bg>Отзиви</span><span data-en>Testimonials</span></a>
+          <a href="#cta"><span data-bg>Регистрация</span><span data-en>Register</span></a>
         </div>
         <div class="footer-col">
-          <h4>Legal</h4>
-          <a href="#top">Terms of Sale</a>
-          <a href="#top">Privacy Policy</a>
-          <a href="#top">Bidder Agreement</a>
+          <h4><span data-bg>Правна Информация</span><span data-en>Legal</span></h4>
+          <a href="#top"><span data-bg>Условия за Продажба</span><span data-en>Terms of Sale</span></a>
+          <a href="#top"><span data-bg>Политика за Поверителност</span><span data-en>Privacy Policy</span></a>
+          <a href="#top"><span data-bg>Споразумение за Наддаващи</span><span data-en>Bidder Agreement</span></a>
         </div>
       </div>
     </div>
     <div class="container footer-bottom">
-      <p>&copy; 2026 Auctio House. All rights reserved.</p>
+      <p><span data-bg>&copy; 2026 Auctio House. Всички права запазени.</span><span data-en>&copy; 2026 Auctio House. All rights reserved.</span></p>
     </div>
   </footer>
 

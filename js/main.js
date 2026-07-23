@@ -4,6 +4,37 @@
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* -------------------------------------------------
+     Language toggle (BG default / EN)
+  ------------------------------------------------- */
+  var CLOSED_TEXT = { bg: 'Приключен', en: 'Closed' };
+  var currentLang = 'bg';
+
+  function setLanguage(lang) {
+    if (lang !== 'bg' && lang !== 'en') return;
+
+    currentLang = lang;
+    document.body.classList.toggle('lang-bg', lang === 'bg');
+    document.body.classList.toggle('lang-en', lang === 'en');
+    document.documentElement.setAttribute('lang', lang);
+
+    document.querySelectorAll('.lang-btn').forEach(function (btn) {
+      btn.setAttribute('aria-pressed', String(btn.getAttribute('data-lang') === lang));
+    });
+
+    document.querySelectorAll('.lot-countdown[data-closed]').forEach(function (el) {
+      el.textContent = CLOSED_TEXT[lang];
+    });
+  }
+
+  document.querySelectorAll('.lang-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setLanguage(btn.getAttribute('data-lang'));
+    });
+  });
+
+  setLanguage('bg');
+
+  /* -------------------------------------------------
      Mobile nav toggle
   ------------------------------------------------- */
   var header = document.querySelector('.site-header');
@@ -57,7 +88,7 @@
         var formatted = formatRemaining(remaining);
 
         if (formatted === null) {
-          el.textContent = 'Closed';
+          el.textContent = CLOSED_TEXT[currentLang];
           el.setAttribute('data-closed', '');
           return false;
         }

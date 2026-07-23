@@ -2,15 +2,15 @@
    Auctio House — Design Tokens
 --------------------------------------------------- */
 :root {
-  --color-bg: #14161A;
-  --color-bg-raised: #1B1E23;
-  --color-ivory: #EDE8DF;
-  --color-ivory-dim: #A9A49A;
-  --color-brass: #B08D57;
-  --color-brass-bright: #C9A76D;
-  --color-oxblood: #6E2E2E;
-  --color-oxblood-bright: #8A3B3B;
-  --color-border: rgba(237, 232, 223, 0.12);
+  --color-bg: #0E1220;
+  --color-bg-raised: #171B2E;
+  --color-ivory: #E8EAF2;
+  --color-ivory-dim: #A2A8C4;
+  --color-brass: #4169E1;
+  --color-brass-bright: #6C8CF5;
+  --color-oxblood: #1E3A8A;
+  --color-oxblood-bright: #3253C4;
+  --color-border: rgba(232, 234, 242, 0.12);
 
   --font-serif: 'Fraunces', Georgia, serif;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -182,7 +182,7 @@ em {
 
 .btn-brass {
   background: var(--color-brass);
-  color: #171512;
+  color: #F5F7FF;
 }
 .btn-brass:hover { background: var(--color-brass-bright); }
 
@@ -211,7 +211,7 @@ em {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(20, 22, 26, 0.92);
+  background: rgba(14, 18, 32, 0.92);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--color-border);
 }
@@ -360,7 +360,7 @@ em {
 }
 
 .lot-card:hover {
-  border-color: rgba(176, 141, 87, 0.45);
+  border-color: rgba(65, 105, 225, 0.45);
 }
 
 .lot-card-media {
@@ -373,24 +373,24 @@ em {
   height: 100%;
   background-size: cover;
   background-position: center;
-  background-color: #23262c;
-  background-image: linear-gradient(155deg, rgba(176,141,87,0.28), rgba(110,46,46,0.35));
+  background-color: #1a2036;
+  background-image: linear-gradient(155deg, rgba(65, 105, 225, 0.28), rgba(30, 58, 138, 0.35));
 }
 
-.lot-image-1 { background-image: linear-gradient(155deg, rgba(176,141,87,0.35), rgba(20,22,26,0.65)), radial-gradient(circle at 30% 30%, #3a2f22, #14161a); }
-.lot-image-2 { background-image: linear-gradient(155deg, rgba(110,46,46,0.3), rgba(20,22,26,0.65)), radial-gradient(circle at 70% 30%, #2c2f38, #14161a); }
-.lot-image-3 { background-image: linear-gradient(155deg, rgba(176,141,87,0.25), rgba(20,22,26,0.65)), radial-gradient(circle at 40% 60%, #33291d, #14161a); }
-.lot-image-4 { background-image: linear-gradient(155deg, rgba(110,46,46,0.28), rgba(20,22,26,0.65)), radial-gradient(circle at 60% 40%, #2a2620, #14161a); }
-.lot-image-5 { background-image: linear-gradient(155deg, rgba(176,141,87,0.3), rgba(20,22,26,0.65)), radial-gradient(circle at 35% 45%, #24301f, #14161a); }
-.lot-image-6 { background-image: linear-gradient(155deg, rgba(20,22,26,0.5), rgba(20,22,26,0.75)), radial-gradient(circle at 50% 50%, #201d1d, #0f1013); }
-.lot-image-7 { background-image: linear-gradient(155deg, rgba(176,141,87,0.28), rgba(20,22,26,0.65)), radial-gradient(circle at 55% 35%, #202a33, #14161a); }
+.lot-image-1 { background-image: linear-gradient(155deg, rgba(65, 105, 225, 0.35), rgba(14, 18, 32, 0.65)), radial-gradient(circle at 30% 30%, #1f2a4a, #0e1220); }
+.lot-image-2 { background-image: linear-gradient(155deg, rgba(30, 58, 138, 0.3), rgba(14, 18, 32, 0.65)), radial-gradient(circle at 70% 30%, #232a42, #0e1220); }
+.lot-image-3 { background-image: linear-gradient(155deg, rgba(65, 105, 225, 0.25), rgba(14, 18, 32, 0.65)), radial-gradient(circle at 40% 60%, #202848, #0e1220); }
+.lot-image-4 { background-image: linear-gradient(155deg, rgba(30, 58, 138, 0.28), rgba(14, 18, 32, 0.65)), radial-gradient(circle at 60% 40%, #1c2440, #0e1220); }
+.lot-image-5 { background-image: linear-gradient(155deg, rgba(65, 105, 225, 0.3), rgba(14, 18, 32, 0.65)), radial-gradient(circle at 35% 45%, #1a2c4a, #0e1220); }
+.lot-image-6 { background-image: linear-gradient(155deg, rgba(14, 18, 32, 0.5), rgba(14, 18, 32, 0.75)), radial-gradient(circle at 50% 50%, #161a2c, #0b0e1a); }
+.lot-image-7 { background-image: linear-gradient(155deg, rgba(65, 105, 225, 0.28), rgba(14, 18, 32, 0.65)), radial-gradient(circle at 55% 35%, #1c2540, #0e1220); }
 
 .lot-tag {
   position: absolute;
   top: 14px;
   left: 14px;
-  background: rgba(20, 22, 26, 0.82);
-  border: 1px solid rgba(176, 141, 87, 0.5);
+  background: rgba(14, 18, 32, 0.82);
+  border: 1px solid rgba(65, 105, 225, 0.5);
   color: var(--color-brass-bright);
   font-family: var(--font-mono);
   font-size: 0.7rem;
@@ -417,7 +417,7 @@ em {
 }
 
 .lot-status-new {
-  background: rgba(237, 232, 223, 0.14);
+  background: rgba(232, 234, 242, 0.14);
   color: var(--color-ivory);
 }
 
@@ -589,7 +589,7 @@ em {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   letter-spacing: 0.04em;
-  color: rgba(237, 232, 223, 0.75);
+  color: rgba(232, 234, 242, 0.75);
 }
 
 /* ---------------------------------------------------

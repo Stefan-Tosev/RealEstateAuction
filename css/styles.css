@@ -417,6 +417,7 @@ em {
 .lot-image-5 { background-image: linear-gradient(155deg, rgba(65, 105, 225, 0.3), rgba(14, 18, 32, 0.65)), radial-gradient(circle at 35% 45%, #1a2c4a, #0e1220); }
 .lot-image-6 { background-image: linear-gradient(155deg, rgba(14, 18, 32, 0.5), rgba(14, 18, 32, 0.75)), radial-gradient(circle at 50% 50%, #161a2c, #0b0e1a); }
 .lot-image-7 { background-image: linear-gradient(155deg, rgba(65, 105, 225, 0.28), rgba(14, 18, 32, 0.65)), radial-gradient(circle at 55% 35%, #1c2540, #0e1220); }
+.lot-image-8 { background-image: linear-gradient(155deg, rgba(65, 105, 225, 0.3), rgba(14, 18, 32, 0.65)), radial-gradient(circle at 45% 40%, #28304a, #0e1220); }
 
 .lot-tag {
   position: absolute;

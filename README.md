@@ -1,6 +1,6 @@
-# Auctio House
+# Auction House
 
-Landing page for **Auctio House**, a luxury real estate auction platform. Properties are
+Landing page for **Auction House**, a luxury real estate auction platform. Properties are
 listed as auction "lots" with live countdown timers, fixed close dates, and transparent
 public bidding.
 

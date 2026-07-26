@@ -5,11 +5,14 @@
 
   /* -------------------------------------------------
      Language toggle (BG default / EN)
+     Persisted in localStorage so it carries over
+     when navigating between pages.
   ------------------------------------------------- */
   var CLOSED_TEXT = { bg: 'Приключен', en: 'Closed' };
+  var LANG_STORAGE_KEY = 'auctionhouse-lang';
   var currentLang = 'bg';
 
-  function setLanguage(lang) {
+  function setLanguage(lang, persist) {
     if (lang !== 'bg' && lang !== 'en') return;
 
     currentLang = lang;
@@ -24,6 +27,14 @@
     document.querySelectorAll('.lot-countdown[data-closed]').forEach(function (el) {
       el.textContent = CLOSED_TEXT[lang];
     });
+
+    if (persist !== false) {
+      try {
+        localStorage.setItem(LANG_STORAGE_KEY, lang);
+      } catch (e) {
+        /* localStorage unavailable (e.g. privacy mode) — ignore */
+      }
+    }
   }
 
   document.querySelectorAll('.lang-btn').forEach(function (btn) {
@@ -32,7 +43,13 @@
     });
   });
 
-  setLanguage('bg');
+  var storedLang = 'bg';
+  try {
+    storedLang = localStorage.getItem(LANG_STORAGE_KEY) || 'bg';
+  } catch (e) {
+    /* localStorage unavailable — fall back to default */
+  }
+  setLanguage(storedLang, false);
 
   /* -------------------------------------------------
      Mobile nav toggle
@@ -73,10 +90,14 @@
     return pad(days) + 'd ' + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds);
   }
 
-  function initCountdowns() {
-    var cards = document.querySelectorAll('.lot-card[data-close]');
+  function initCountdowns(root) {
+    var scope = root || document;
+    var cards = scope.querySelectorAll('[data-close]');
 
     cards.forEach(function (card) {
+      if (card.hasAttribute('data-countdown-inited')) return;
+      card.setAttribute('data-countdown-inited', '');
+
       var el = card.querySelector('[data-countdown]');
       if (!el) return;
 
@@ -106,4 +127,15 @@
   }
 
   initCountdowns();
+
+  /* -------------------------------------------------
+     Shared namespace for other page scripts
+     (e.g. js/property.js re-initializing countdowns
+     on dynamically inserted lot cards)
+  ------------------------------------------------- */
+  window.AuctionHouse = {
+    setLanguage: setLanguage,
+    initCountdowns: initCountdowns,
+    getLanguage: function () { return currentLang; }
+  };
 })();

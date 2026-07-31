@@ -52,6 +52,51 @@
   setLanguage(storedLang, false);
 
   /* -------------------------------------------------
+     Light / dark theme toggle
+     Defaults to the OS preference on first visit,
+     then persists the explicit choice in localStorage.
+  ------------------------------------------------- */
+  var THEME_STORAGE_KEY = 'auctionhouse-theme';
+  var currentTheme = 'dark';
+
+  function setTheme(theme, persist) {
+    if (theme !== 'dark' && theme !== 'light') return;
+
+    currentTheme = theme;
+    document.body.classList.toggle('theme-dark', theme === 'dark');
+    document.body.classList.toggle('theme-light', theme === 'light');
+
+    document.querySelectorAll('.theme-toggle').forEach(function (btn) {
+      btn.setAttribute('aria-pressed', String(theme === 'light'));
+    });
+
+    if (persist !== false) {
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
+      } catch (e) {
+        /* localStorage unavailable (e.g. privacy mode) — ignore */
+      }
+    }
+  }
+
+  document.querySelectorAll('.theme-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    });
+  });
+
+  var storedTheme = null;
+  try {
+    storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+  } catch (e) {
+    /* localStorage unavailable — fall back to OS preference */
+  }
+  if (storedTheme !== 'dark' && storedTheme !== 'light') {
+    storedTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+  setTheme(storedTheme, false);
+
+  /* -------------------------------------------------
      Mobile nav toggle
   ------------------------------------------------- */
   var header = document.querySelector('.site-header');
@@ -76,6 +121,8 @@
      Reads data-close (ISO date) from each .lot-card
      and updates its .lot-countdown element.
   ------------------------------------------------- */
+  var URGENT_THRESHOLD_MS = 48 * 60 * 60 * 1000;
+
   function pad(n) {
     return String(n).padStart(2, '0');
   }
@@ -110,11 +157,13 @@
 
         if (formatted === null) {
           el.textContent = CLOSED_TEXT[currentLang];
+          el.removeAttribute('data-urgent');
           el.setAttribute('data-closed', '');
           return false;
         }
 
         el.textContent = formatted;
+        el.toggleAttribute('data-urgent', remaining <= URGENT_THRESHOLD_MS);
         return true;
       }
 
@@ -129,6 +178,42 @@
   initCountdowns();
 
   /* -------------------------------------------------
+     Landing-page CTA — hands off to register.html
+
+     Validated here rather than via the `required` attribute:
+     native constraint bubbles are rendered in the browser's
+     locale, which would ignore the site's BG/EN toggle. Errors
+     are injected as paired spans so a language switch is
+     handled by CSS alone.
+  ------------------------------------------------- */
+  var ctaForm = document.getElementById('cta-form');
+
+  if (ctaForm) {
+    var ctaEmail = document.getElementById('cta-email');
+    var ctaError = document.getElementById('cta-error');
+    var CTA_EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+
+    ctaForm.addEventListener('submit', function (ev) {
+      var value = ctaEmail.value.trim();
+      var valid = value.length <= 254 && CTA_EMAIL_RE.test(value);
+
+      if (valid) {
+        ctaError.hidden = true;
+        ctaEmail.removeAttribute('aria-invalid');
+        return; // let the GET through to register.html?email=...
+      }
+
+      ev.preventDefault();
+      ctaError.innerHTML = value
+        ? '<span data-bg>Въведете валиден имейл адрес.</span><span data-en>Enter a valid email address.</span>'
+        : '<span data-bg>Имейлът е задължителен.</span><span data-en>Email address is required.</span>';
+      ctaError.hidden = false;
+      ctaEmail.setAttribute('aria-invalid', 'true');
+      ctaEmail.focus();
+    });
+  }
+
+  /* -------------------------------------------------
      Shared namespace for other page scripts
      (e.g. js/property.js re-initializing countdowns
      on dynamically inserted lot cards)
@@ -136,6 +221,8 @@
   window.AuctionHouse = {
     setLanguage: setLanguage,
     initCountdowns: initCountdowns,
-    getLanguage: function () { return currentLang; }
+    getLanguage: function () { return currentLang; },
+    setTheme: setTheme,
+    getTheme: function () { return currentTheme; }
   };
 })();

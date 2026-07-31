@@ -310,7 +310,7 @@
             '<span class="lot-price-label">' + bilingual('Искана Цена', 'Asking Price') + '</span>' +
             '<span class="price-panel-value">' + listing.price + '</span>' +
           '</div>' +
-          '<a class="btn btn-brass btn-lg btn-full" href="#cta">' + bilingual('Заяви Оглед', 'Request Viewing') + '</a>' +
+          '<a class="btn btn-brass btn-lg btn-full" href="register.html">' + bilingual('Заяви Оглед', 'Request Viewing') + '</a>' +
         '</div>'
       );
     }
@@ -339,7 +339,7 @@
           '</div>' +
         '</div>' +
         '<p class="bid-increment-note">' + incrementNote + '</p>' +
-        '<a class="btn btn-brass btn-lg btn-full" href="#cta">' + bilingual('Наддай Сега', 'Place Bid') + '</a>' +
+        '<a class="btn btn-brass btn-lg btn-full" href="register.html">' + bilingual('Наддай Сега', 'Place Bid') + '</a>' +
       '</div>'
     );
   }

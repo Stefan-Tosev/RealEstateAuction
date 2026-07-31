@@ -12,7 +12,7 @@
 
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body class="lang-bg">
+<body class="lang-bg theme-dark">
 
   <a class="skip-link" href="#main"><span data-bg>Към съдържанието</span><span data-en>Skip to content</span></a>
 
@@ -31,12 +31,16 @@
       </nav>
 
       <div class="header-actions">
+        <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Toggle light / dark theme">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
         <div class="lang-toggle" role="group" aria-label="Language / Език">
           <button type="button" class="lang-btn" data-lang="bg" aria-pressed="true">БГ</button>
           <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
         </div>
         <a class="btn btn-ghost" href="index.html#cta"><span data-bg>Вход</span><span data-en>Sign In</span></a>
-        <a class="btn btn-brass" href="index.html#cta"><span data-bg>Регистрация за Наддаване</span><span data-en>Register to Bid</span></a>
+        <a class="btn btn-brass" href="register.html"><span data-bg>Регистрация за Наддаване</span><span data-en>Register to Bid</span></a>
       </div>
 
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav-mobile" aria-label="Toggle menu">
@@ -49,12 +53,16 @@
       <a href="index.html#process"><span data-bg>Как Работи</span><span data-en>How It Works</span></a>
       <a href="index.html#stats"><span data-bg>Резултати</span><span data-en>Results</span></a>
       <a href="index.html#testimonials"><span data-bg>Отзиви</span><span data-en>Testimonials</span></a>
+      <button type="button" class="theme-toggle theme-toggle-mobile" aria-pressed="false" aria-label="Toggle light / dark theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
       <div class="lang-toggle lang-toggle-mobile" role="group" aria-label="Language / Език">
         <button type="button" class="lang-btn" data-lang="bg" aria-pressed="true">БГ</button>
         <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
       </div>
       <a class="btn btn-ghost" href="index.html#cta"><span data-bg>Вход</span><span data-en>Sign In</span></a>
-      <a class="btn btn-brass" href="index.html#cta"><span data-bg>Регистрация за Наддаване</span><span data-en>Register to Bid</span></a>
+      <a class="btn btn-brass" href="register.html"><span data-bg>Регистрация за Наддаване</span><span data-en>Register to Bid</span></a>
     </nav>
   </header>
 
@@ -87,7 +95,7 @@
           <h4><span data-bg>Компания</span><span data-en>Company</span></h4>
           <a href="index.html#top"><span data-bg>За Нас</span><span data-en>About</span></a>
           <a href="index.html#testimonials"><span data-bg>Отзиви</span><span data-en>Testimonials</span></a>
-          <a href="index.html#cta"><span data-bg>Регистрация</span><span data-en>Register</span></a>
+          <a href="register.html"><span data-bg>Регистрация</span><span data-en>Register</span></a>
         </div>
         <div class="footer-col">
           <h4><span data-bg>Правна Информация</span><span data-en>Legal</span></h4>

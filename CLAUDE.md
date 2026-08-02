@@ -2,7 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Overview
+## ⚠ The project is being rebuilt — read this first
+
+As of **August 2026** this repository is mid-pivot.
+
+- **`docs/architecture.md` is the authoritative spec for v2** — a real platform (Next.js + TypeScript + PostgreSQL) with live soft-close bidding. Read it before starting any new work.
+- **Everything else described below is the v1 static prototype.** It is a design reference — the visual language, the bilingual pattern and the validation rules are all worth carrying forward — but it is *not* the target architecture.
+
+So: the "no framework, no build step, no dependencies" constraint below applies to the **existing prototype files only**. It does not apply to v2 work. If a task mentions schema, auth, an admin panel, a backend or a build step, that is v2 — follow `docs/architecture.md`, not the constraints in this file.
+
+`docs/server-validation.md` holds the server-side validation spec for registration and stays valid for v2.
+
+---
+
+## Overview (v1 prototype)
 
 Auction House — a static landing page + property detail page for a luxury real estate auction platform. Plain HTML/CSS/JS, no framework, no build step, no package.json, no dependencies.
 

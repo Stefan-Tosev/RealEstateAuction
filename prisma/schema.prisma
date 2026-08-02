@@ -1,0 +1,466 @@
+// Auction House v2 — data model.
+// One-to-one with docs/architecture.md §2 (Data model) and §10 (fees),
+// plus `admin_users`, which the architecture doc does not cover — see
+// the "Key design decision" section of the Phase 0 plan for why
+// operator identity is a separate table from the bidder-shaped `users`.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [citext]
+}
+
+// ---------- Enums ----------
+
+enum AccountType {
+  individual
+  company
+
+  @@map("account_type")
+}
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+
+  @@map("user_status")
+}
+
+enum Locale {
+  bg
+  en
+
+  @@map("locale")
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  expired
+
+  @@map("approval_status")
+}
+
+enum PropertyType {
+  apartment
+  house
+  land
+  commercial
+  other
+
+  @@map("property_type")
+}
+
+// The auction lifecycle state machine — docs/architecture.md §1.
+enum LotStatus {
+  DRAFT
+  PUBLISHED
+  BIDDING_OPEN
+  EXTENDING
+  RESERVE_NOT_MET
+  CLOSED_SOLD
+  CLOSED_UNSOLD
+  CANCELLED
+
+  @@map("lot_status")
+}
+
+enum BidStatus {
+  accepted
+  rejected
+
+  @@map("bid_status")
+}
+
+enum DocumentKind {
+  title_deed
+  sketch
+  tax_valuation
+  encumbrances
+  floor_plan
+  energy_cert
+  other
+
+  @@map("document_kind")
+}
+
+enum DocumentVisibility {
+  public
+  registered
+  approved_bidders
+
+  @@map("document_visibility")
+}
+
+enum ViewingKind {
+  private
+  open_house
+
+  @@map("viewing_kind")
+}
+
+enum BookingStatus {
+  booked
+  cancelled
+  attended
+  no_show
+
+  @@map("booking_status")
+}
+
+enum DepositMethod {
+  sepa
+  card_hold
+
+  @@map("deposit_method")
+}
+
+enum DepositStatus {
+  pending
+  held
+  released
+  forfeited
+  refunded
+
+  @@map("deposit_status")
+}
+
+enum NotificationChannel {
+  email
+  push
+  sms
+
+  @@map("notification_channel")
+}
+
+enum FeeParty {
+  seller
+  buyer
+
+  @@map("fee_party")
+}
+
+enum FeeKind {
+  entry
+  commission
+  premium
+  withdrawal
+
+  @@map("fee_kind")
+}
+
+enum FeeBasis {
+  fixed
+  percent
+
+  @@map("fee_basis")
+}
+
+enum FeeStatus {
+  due
+  invoiced
+  paid
+  waived
+
+  @@map("fee_status")
+}
+
+enum AdminRole {
+  admin
+  staff
+
+  @@map("admin_role")
+}
+
+// ---------- Identity ----------
+
+// Bidder identity. Not used by platform operators — see AdminUser.
+model User {
+  id              String      @id @default(uuid()) @db.Uuid
+  email           String      @unique @db.Citext
+  passwordHash    String      @map("password_hash")
+  emailVerifiedAt DateTime?   @map("email_verified_at") @db.Timestamptz(6)
+  phone           String?
+  phoneVerifiedAt DateTime?   @map("phone_verified_at") @db.Timestamptz(6)
+  firstName       String      @map("first_name")
+  lastName        String      @map("last_name")
+  dateOfBirth     DateTime    @map("date_of_birth") @db.Date
+  accountType     AccountType @map("account_type")
+  companyName     String?     @map("company_name")
+  eik             String?
+  vat             String?
+  locale          Locale      @default(bg)
+  status          UserStatus  @default(active)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  bidderApprovals BidderApproval[]
+  bids            Bid[]
+  viewingBookings ViewingBooking[]
+  deposits        Deposit[]
+  outboxEntries   Outbox[]
+
+  @@map("users")
+}
+
+// Separate from User on purpose (§2): an account is not a paddle.
+// Approval is revocable, expires, and is audited independently of login.
+model BidderApproval {
+  id           String         @id @default(uuid()) @db.Uuid
+  userId       String         @map("user_id") @db.Uuid
+  status       ApprovalStatus @default(pending)
+  kycProvider  String?        @map("kyc_provider")
+  kycReference String?        @map("kyc_reference")
+  reviewedBy   String?        @map("reviewed_by") @db.Uuid
+  reviewedAt   DateTime?      @map("reviewed_at") @db.Timestamptz(6)
+  notes        String?
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user     User       @relation(fields: [userId], references: [id])
+  reviewer AdminUser? @relation(fields: [reviewedBy], references: [id])
+
+  @@map("bidder_approvals")
+}
+
+// Platform operator identity (admin shell login). Not part of the
+// documented §2 model — added because the architecture doc is silent on
+// how admins/staff authenticate, and lots are admin-curated (§11).
+model AdminUser {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique @db.Citext
+  passwordHash String    @map("password_hash")
+  name         String
+  role         AdminRole @default(staff)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
+
+  reviewedApprovals BidderApproval[]
+  reserveAgreedLots Lot[]
+  uploadedDocuments LotDocument[]
+
+  @@map("admin_users")
+}
+
+// ---------- Catalogue ----------
+
+// The physical asset.
+model Property {
+  id            String       @id @default(uuid()) @db.Uuid
+  slug          String       @unique
+  titleBg       String       @map("title_bg")
+  titleEn       String       @map("title_en")
+  descriptionBg String       @map("description_bg") @db.Text
+  descriptionEn String       @map("description_en") @db.Text
+  address       String
+  city          String
+  region        String
+  lat           Decimal?     @db.Decimal(9, 6)
+  lng           Decimal?     @db.Decimal(9, 6)
+  areaSqm       Decimal?     @map("area_sqm") @db.Decimal(10, 2)
+  rooms         Int?
+  floor         Int?
+  yearBuilt     Int?         @map("year_built")
+  propertyType  PropertyType @map("property_type")
+  cadastralId   String?      @map("cadastral_id")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  lots Lot[]
+
+  @@map("properties")
+}
+
+// An auction *of* a property — one property can be auctioned more than
+// once if it fails to sell (§2).
+model Lot {
+  id                     String    @id @default(uuid()) @db.Uuid
+  propertyId             String    @map("property_id") @db.Uuid
+  lotNumber              Int       @map("lot_number")
+  status                 LotStatus @default(DRAFT)
+  previewStartsAt        DateTime? @map("preview_starts_at") @db.Timestamptz(6)
+  biddingOpensAt         DateTime? @map("bidding_opens_at") @db.Timestamptz(6)
+  // The published close — never mutated.
+  scheduledCloseAt       DateTime? @map("scheduled_close_at") @db.Timestamptz(6)
+  // Moves on soft close; the authoritative one.
+  effectiveCloseAt       DateTime? @map("effective_close_at") @db.Timestamptz(6)
+  closedAt               DateTime? @map("closed_at") @db.Timestamptz(6)
+  startingPriceMinor     BigInt    @map("starting_price_minor")
+  bidIncrementMinor      BigInt?   @map("bid_increment_minor")
+  // Secret; never leaves the server.
+  reservePriceMinor      BigInt    @map("reserve_price_minor")
+  softCloseWindowSeconds Int       @default(300) @map("soft_close_window_seconds")
+  softCloseResetSeconds  Int       @default(300) @map("soft_close_reset_seconds")
+  softCloseSchedule      Json?     @map("soft_close_schedule")
+  extensionCount         Int       @default(0) @map("extension_count")
+  depositRequiredMinor   BigInt?   @map("deposit_required_minor")
+  winningBidId           String?   @unique @map("winning_bid_id") @db.Uuid
+  // §10: if null, the lot cannot be published — the auctioneer must
+  // agree the reserve, sellers do not set it unilaterally.
+  reserveAgreedBy        String?   @map("reserve_agreed_by") @db.Uuid
+  reserveAgreedAt        DateTime? @map("reserve_agreed_at") @db.Timestamptz(6)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  property             Property      @relation(fields: [propertyId], references: [id])
+  bids                 Bid[]         @relation("LotBids")
+  winningBid           Bid?          @relation("LotWinningBid", fields: [winningBidId], references: [id])
+  reserveAgreedByAdmin AdminUser?    @relation(fields: [reserveAgreedBy], references: [id])
+  documents            LotDocument[]
+  viewings             Viewing[]
+  deposits             Deposit[]
+  fees                 Fee[]
+
+  @@unique([propertyId, lotNumber])
+  @@map("lots")
+}
+
+// ---------- Bidding ----------
+
+// APPEND ONLY. Never UPDATE, never DELETE — enforced at the database
+// level by a trigger (see migration `..._bids_append_only`), not by
+// convention (§3).
+model Bid {
+  id                String    @id @default(uuid()) @db.Uuid
+  lotId             String    @map("lot_id") @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  amountMinor       BigInt    @map("amount_minor")
+  // Server clock — the only clock that matters (§3 invariant 1).
+  receivedAt        DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  status            BidStatus
+  rejectReason      String?   @map("reject_reason")
+  idempotencyKey    String    @map("idempotency_key")
+  causedExtensionTo DateTime? @map("caused_extension_to") @db.Timestamptz(6)
+  previousBidId     String?   @map("previous_bid_id") @db.Uuid
+  clientIp          String?   @map("client_ip")
+  userAgent         String?   @map("user_agent")
+
+  lot          Lot   @relation("LotBids", fields: [lotId], references: [id])
+  user         User  @relation(fields: [userId], references: [id])
+  wonLot       Lot?  @relation("LotWinningBid")
+  previousBid  Bid?  @relation("BidChain", fields: [previousBidId], references: [id])
+  followingBid Bid[] @relation("BidChain")
+
+  @@unique([lotId, userId, idempotencyKey])
+  @@map("bids")
+}
+
+// ---------- Supporting ----------
+
+model LotDocument {
+  id         String             @id @default(uuid()) @db.Uuid
+  lotId      String             @map("lot_id") @db.Uuid
+  kind       DocumentKind
+  filename   String
+  storageKey String             @map("storage_key")
+  size       BigInt
+  mime       String
+  sha256     String
+  visibility DocumentVisibility
+  uploadedBy String             @map("uploaded_by") @db.Uuid
+  uploadedAt DateTime           @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+
+  lot      Lot       @relation(fields: [lotId], references: [id])
+  uploader AdminUser @relation(fields: [uploadedBy], references: [id])
+
+  @@map("lot_documents")
+}
+
+model Viewing {
+  id              String      @id @default(uuid()) @db.Uuid
+  lotId           String      @map("lot_id") @db.Uuid
+  startsAt        DateTime    @map("starts_at") @db.Timestamptz(6)
+  durationMinutes Int         @map("duration_minutes")
+  capacity        Int
+  kind            ViewingKind
+
+  lot      Lot              @relation(fields: [lotId], references: [id])
+  bookings ViewingBooking[]
+
+  @@map("viewings")
+}
+
+model ViewingBooking {
+  id        String        @id @default(uuid()) @db.Uuid
+  viewingId String        @map("viewing_id") @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  status    BookingStatus @default(booked)
+  bookedAt  DateTime      @default(now()) @map("booked_at") @db.Timestamptz(6)
+
+  viewing Viewing @relation(fields: [viewingId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("viewing_bookings")
+}
+
+model Deposit {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  lotId       String        @map("lot_id") @db.Uuid
+  amountMinor BigInt        @map("amount_minor")
+  method      DepositMethod
+  status      DepositStatus @default(pending)
+  providerRef String?       @map("provider_ref")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+  lot  Lot  @relation(fields: [lotId], references: [id])
+
+  @@map("deposits")
+}
+
+// Append only. actorUserId is intentionally not a foreign key: the
+// actor may be a bidder (`users`) or an operator (`admin_users`), and
+// the log must keep working (and keep the id) even if the actor row is
+// later deleted.
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id") @db.Uuid
+  before      Json?
+  after       Json?
+  ip          String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("audit_log")
+}
+
+// Durable notification queue so a mail provider outage cannot lose a
+// notification (§4).
+model Outbox {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  channel   NotificationChannel
+  template  String
+  payload   Json
+  sendAfter DateTime?           @map("send_after") @db.Timestamptz(6)
+  sentAt    DateTime?           @map("sent_at") @db.Timestamptz(6)
+  attempts  Int                 @default(0)
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("outbox")
+}
+
+// §10 commercial model: entry/commission/premium/withdrawal fees.
+model Fee {
+  id          String    @id @default(uuid()) @db.Uuid
+  lotId       String    @map("lot_id") @db.Uuid
+  party       FeeParty
+  kind        FeeKind
+  amountMinor BigInt    @map("amount_minor")
+  basis       FeeBasis
+  rate        Decimal?  @db.Decimal(6, 4)
+  status      FeeStatus @default(due)
+  chargedAt   DateTime? @map("charged_at") @db.Timestamptz(6)
+
+  lot Lot @relation(fields: [lotId], references: [id])
+
+  @@map("fees")
+}

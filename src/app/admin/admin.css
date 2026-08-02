@@ -1,0 +1,166 @@
+/* Minimal admin-shell styling. Reuses the v1 navy/gold palette values
+   (css/styles.css) for visual continuity — not imported wholesale, since
+   the admin tool doesn't share v1's layout or bilingual pattern. */
+
+:root {
+  --admin-bg: #0a1020;
+  --admin-bg-raised: #131a2e;
+  --admin-border: rgba(236, 239, 247, 0.12);
+  --admin-text: #eceff7;
+  --admin-text-muted: #9aa4c2;
+  --admin-royal: #6486d8;
+  --admin-brass: #c9a961;
+  --admin-error: #e2857a;
+}
+
+.admin-auth {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: system-ui, sans-serif;
+}
+
+.admin-auth-card {
+  width: 100%;
+  max-width: 22rem;
+  padding: 2.5rem;
+  background: var(--admin-bg-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+}
+
+.admin-auth-card h1 {
+  font-size: 1.25rem;
+  margin: 0 0 1.5rem;
+}
+
+.admin-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.admin-auth-form label {
+  font-size: 0.85rem;
+  color: var(--admin-text-muted);
+  margin-top: 0.75rem;
+}
+
+.admin-auth-form input {
+  padding: 0.55rem 0.65rem;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.3rem;
+  color: var(--admin-text);
+  font-size: 0.95rem;
+}
+
+.admin-auth-form button {
+  margin-top: 1.5rem;
+  padding: 0.6rem;
+  background: var(--admin-brass);
+  color: #0a1020;
+  border: none;
+  border-radius: 0.3rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-auth-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.admin-auth-error {
+  margin-top: 0.75rem;
+  color: var(--admin-error);
+  font-size: 0.85rem;
+}
+
+.admin-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: system-ui, sans-serif;
+}
+
+.admin-sidebar {
+  width: 15rem;
+  flex-shrink: 0;
+  background: var(--admin-bg-raised);
+  border-right: 1px solid var(--admin-border);
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-sidebar-brand {
+  font-weight: 700;
+  color: var(--admin-brass);
+  margin-bottom: 2rem;
+}
+
+.admin-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+}
+
+.admin-nav li {
+  margin-bottom: 0.25rem;
+}
+
+.admin-nav-link {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.3rem;
+  color: var(--admin-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.admin-nav-link[data-active="true"] {
+  background: rgba(100, 134, 216, 0.15);
+  color: var(--admin-royal);
+}
+
+.admin-nav-link[data-disabled="true"] {
+  color: var(--admin-text-muted);
+  pointer-events: none;
+}
+
+.admin-nav-soon {
+  font-size: 0.7rem;
+  margin-left: 0.4rem;
+  color: var(--admin-text-muted);
+}
+
+.admin-sidebar-footer {
+  border-top: 1px solid var(--admin-border);
+  padding-top: 1rem;
+  font-size: 0.85rem;
+}
+
+.admin-sidebar-footer form {
+  margin-top: 0.5rem;
+}
+
+.admin-sidebar-footer button {
+  background: none;
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.admin-main {
+  flex: 1;
+  padding: 2.5rem;
+}

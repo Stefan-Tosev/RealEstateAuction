@@ -155,8 +155,14 @@ export const LISTINGS: SeedListing[] = [
     yearBuilt: 2011,
     startingPriceMinor: 89_000_000n,
     bidIncrementMinor: 1_000_000n,
-    // Minutes away — exercises the EXTENDING badge and a live soft close.
-    closesInHours: 0.1,
+    /*
+     * Exercises the EXTENDING badge. Two hours, not minutes: there is no
+     * soft-close engine until Phase 3, so nothing advances the status
+     * when the clock runs out — a shorter window left the catalogue
+     * showing an "extended" badge above a "closed" countdown within
+     * minutes of seeding.
+     */
+    closesInHours: 2,
     gradient: 3,
     images: [
       {

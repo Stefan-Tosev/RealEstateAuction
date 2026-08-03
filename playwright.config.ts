@@ -12,6 +12,13 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: "list",
+  // `next dev` compiles routes and server actions on first request, so the
+  // first navigation to /admin and the first login POST each pay a compile
+  // cost the warm run never shows. Against the 5s default, a warm run left
+  // ~0.5s of headroom and a cold one failed outright — surfacing as
+  // "login didn't redirect", which reads as an auth bug rather than a
+  // build delay. The webServer url below only pre-compiles /admin/login.
+  expect: { timeout: 15_000 },
   use: {
     baseURL: "http://localhost:3000",
     ...(existsSync(preinstalledChromium)

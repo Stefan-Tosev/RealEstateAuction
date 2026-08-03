@@ -7,8 +7,8 @@ import {
   moveImageAction,
   uploadImageAction,
   type FormState,
-} from "../../catalogue-actions";
-import { Field } from "../../_components/field";
+} from "../../../catalogue-actions";
+import { Field } from "../../../_components/field";
 
 /*
  * Upload, order and remove a property's photographs.

@@ -2,8 +2,8 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { saveLotAction, type FormState } from "../catalogue-actions";
-import { Field } from "../_components/field";
+import { saveLotAction, type FormState } from "../../catalogue-actions";
+import { Field } from "../../_components/field";
 
 type PropertyOption = { id: string; slug: string; titleBg: string };
 

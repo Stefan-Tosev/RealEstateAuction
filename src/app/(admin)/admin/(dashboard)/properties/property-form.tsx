@@ -2,8 +2,8 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { savePropertyAction, type FormState } from "../catalogue-actions";
-import { Field } from "../_components/field";
+import { savePropertyAction, type FormState } from "../../catalogue-actions";
+import { Field } from "../../_components/field";
 
 const PROPERTY_TYPES = ["apartment", "house", "land", "commercial", "other"] as const;
 

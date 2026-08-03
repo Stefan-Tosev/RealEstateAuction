@@ -6,7 +6,7 @@ import {
   agreeReserveAction,
   changeStatusAction,
   type FormState,
-} from "../catalogue-actions";
+} from "../../catalogue-actions";
 
 /*
  * The lifecycle controls: agree the reserve, publish, unpublish, cancel.

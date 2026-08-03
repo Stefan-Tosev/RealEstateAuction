@@ -18,13 +18,16 @@ let png: Buffer;
 
 beforeAll(async () => {
   // A large landscape JPEG carrying GPS metadata, as a phone produces.
+  /*
+   * sharp's typed withExif() only exposes the IFD blocks, so the fixture
+   * carries IFD0 tags rather than a GPS block. That is enough: the
+   * property under test is that *all* EXIF is dropped, and GPS is
+   * carried in the same metadata segment as everything here.
+   */
   jpegWithExif = await sharp({
     create: { width: 4000, height: 3000, channels: 3, background: "#345678" },
   })
-    .withExif({
-      IFD0: { Copyright: "Seller" },
-      GPS: { GPSLatitudeRef: "N", GPSLongitudeRef: "E" },
-    })
+    .withExif({ IFD0: { Copyright: "Seller", Software: "Camera" } })
     .jpeg()
     .toBuffer();
 
@@ -105,7 +108,7 @@ describe("processUpload rejects", () => {
 });
 
 describe("processUpload accepts and normalises", () => {
-  it("strips EXIF, including GPS", async () => {
+  it("strips all EXIF metadata", async () => {
     /*
      * The reason this matters: a camera JPEG of a property routinely
      * carries the coordinates it was taken at — frequently the seller's

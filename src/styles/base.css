@@ -1,0 +1,167 @@
+/* ---------------------------------------------------
+   Reset + base typography + buttons
+--------------------------------------------------- */
+/*
+   Ported from css/styles.css. The language-toggle rules
+   (.lang-bg [data-en] { display: none }) are deliberately NOT carried
+   over: v2 renders one language per URL, so there is no second copy in
+   the DOM to hide.
+*/
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body, h1, h2, h3, h4, p, dl, dd, blockquote, figure { margin: 0; }
+
+ul, ol { list-style: none; padding: 0; margin: 0; }
+
+img { max-width: 100%; display: block; }
+
+a { color: inherit; text-decoration: none; }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+input { font: inherit; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ivory);
+  font-family: var(--font-sans);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--container-width);
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+/* ---------------------------------------------------
+   Accessibility utilities
+--------------------------------------------------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  background: var(--color-brass);
+  color: var(--color-on-brass);
+  padding: 12px 20px;
+  z-index: 1000;
+  font-weight: 600;
+  border-radius: var(--radius);
+  transition: top var(--transition-fast);
+}
+.skip-link:focus { top: 16px; }
+
+:focus-visible {
+  outline: 2px solid var(--color-royal-bright);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------
+   Typography
+--------------------------------------------------- */
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: var(--color-royal-bright);
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: clamp(1.9rem, 1.5rem + 1.6vw, 2.75rem);
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.section-lede {
+  color: var(--color-ivory-dim);
+  max-width: 620px;
+  font-size: 1.05rem;
+}
+
+em {
+  font-style: italic;
+  color: var(--color-brass-bright);
+}
+
+/* ---------------------------------------------------
+   Buttons
+--------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 26px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  transition: background var(--transition-fast), color var(--transition-fast),
+              border-color var(--transition-fast), transform var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn:active { transform: translateY(1px); }
+
+.btn-brass {
+  background: var(--color-brass);
+  color: var(--color-on-brass);
+}
+.btn-brass:hover { background: var(--color-brass-bright); }
+
+.btn-outline {
+  border-color: var(--color-border);
+  color: var(--color-ivory);
+}
+.btn-outline:hover {
+  border-color: var(--color-royal);
+  color: var(--color-royal-bright);
+}
+
+.btn-ghost { color: var(--color-ivory-dim); }
+.btn-ghost:hover { color: var(--color-ivory); }
+
+.btn-lg { padding: 16px 32px; font-size: 1rem; }
+
+.btn-full { width: 100%; }

@@ -1,0 +1,158 @@
+/* ---------------------------------------------------
+   Site header, toggles, footer
+--------------------------------------------------- */
+/*
+   Ported from css/styles.css. The language control differs from v1: it
+   is a link to the counterpart locale URL rather than a pair of buttons
+   toggling a body class, so `.lang-btn[aria-pressed]` becomes
+   `.lang-link[aria-current]`.
+*/
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--color-header-bg);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding-block: 18px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 500;
+  margin-right: auto;
+}
+
+.logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--color-brass);
+  color: var(--color-brass-bright);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+.main-nav {
+  display: flex;
+  gap: 28px;
+}
+
+.main-nav a {
+  font-size: 0.92rem;
+  color: var(--color-ivory-dim);
+  transition: color var(--transition-fast);
+}
+.main-nav a:hover { color: var(--color-ivory); }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------
+   Language switch
+--------------------------------------------------- */
+.lang-toggle {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.lang-link {
+  padding: 9px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--color-ivory-dim);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.lang-link:hover { color: var(--color-ivory); }
+
+.lang-link[aria-current="true"] {
+  background: var(--color-royal);
+  color: #FFFFFF;
+}
+
+/* ---------------------------------------------------
+   Light / dark theme toggle
+--------------------------------------------------- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-ivory-dim);
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.theme-toggle:hover {
+  color: var(--color-royal-bright);
+  border-color: var(--color-royal);
+}
+
+.theme-toggle svg {
+  display: none;
+  width: 16px;
+  height: 16px;
+}
+body.theme-dark .theme-toggle .icon-sun { display: block; }
+body.theme-light .theme-toggle .icon-moon { display: block; }
+
+/* ---------------------------------------------------
+   Footer
+--------------------------------------------------- */
+.site-footer {
+  border-top: 1px solid var(--color-border);
+  padding-top: 64px;
+}
+
+.footer-inner {
+  display: grid;
+  grid-template-columns: 1.2fr 2fr;
+  gap: 48px;
+  padding-bottom: 48px;
+}
+
+.footer-brand p {
+  color: var(--color-ivory-dim);
+  font-size: 0.9rem;
+  margin-top: 14px;
+  max-width: 32ch;
+}
+
+.footer-bottom {
+  border-top: 1px solid var(--color-border);
+  padding-block: 24px;
+}
+
+.footer-bottom p {
+  color: var(--color-ivory-dim);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 1024px) {
+  .footer-inner { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 860px) {
+  .main-nav { display: none; }
+}

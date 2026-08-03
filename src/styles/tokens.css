@@ -1,0 +1,108 @@
+/* ---------------------------------------------------
+   Auction House — Design Tokens
+--------------------------------------------------- */
+/*
+   Ported from the v1 prototype (css/styles.css). Values are unchanged;
+   the only edit is the three font tokens, which now point at next/font
+   CSS variables instead of naming Google families directly.
+
+   Two roles carry the palette:
+     royal blue  -> structure (nav, labels, borders, focus, hover, counts)
+     champagne   -> value     (prices, countdowns, primary CTA, brand mark)
+   Gold is deliberately scarce; that scarcity is what keeps it reading
+   as luxury rather than as decoration.
+*/
+:root {
+  /* Dark theme (default) */
+  --color-bg: #0A1020;
+  --color-bg-raised: #131A2E;
+  --color-ivory: #ECEFF7;
+  --color-ivory-dim: #97A1BC;
+
+  /* Value accent — champagne */
+  --color-brass: #C9A961;
+  --color-brass-bright: #E2C88A;
+  --color-on-brass: #0A1020;
+
+  /* Structure accent — royal blue */
+  --color-royal: #2E4FA3;
+  --color-royal-bright: #6486D8;
+
+  /* Fixed contrast band (stays deep in both themes) */
+  --color-band: #16264F;
+  --color-on-band: #ECEFF7;
+
+  /* Urgency — amber. Chip stays fixed (it sits on photos); text is themed. */
+  --color-urgent: #E0952F;
+  --color-urgent-text: #E0952F;
+  --color-on-urgent: #1A1206;
+
+  /* Form errors — deliberately red, kept distinct from the amber urgency hue */
+  --color-error: #F2857A;
+  --color-error-border: rgba(242, 133, 122, 0.7);
+
+  --color-border: rgba(236, 239, 247, 0.12);
+  --color-header-bg: rgba(10, 16, 32, 0.92);
+  --shadow-glow: 0 16px 36px -18px rgba(201, 169, 97, 0.45);
+  --shadow-lift: 0 16px 36px -18px rgba(46, 79, 163, 0.6);
+  --shadow-card: 0 20px 40px -22px rgba(0, 0, 0, 0.6);
+
+  /*
+     v1 used Fraunces for headings. Fraunces ships no Cyrillic subset
+     (Google Fonts coverage: latin, latin-ext, vietnamese), so on the
+     Bulgarian site — the default language — every heading silently fell
+     back to Georgia. Playfair Display is the same high-contrast display
+     register and does carry Cyrillic.
+  */
+  --font-serif: var(--font-playfair), Georgia, serif;
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: var(--font-plex-mono), 'Courier New', monospace;
+
+  --container-width: 1200px;
+  --radius: 2px;
+
+  --transition-fast: 150ms ease;
+  --transition-med: 300ms ease;
+}
+
+/*
+   Light theme. Only the tokens that must flip are redeclared —
+   --color-band / --color-urgent / --color-on-* stay put on purpose so
+   the stats band and the on-photo chips read identically in both modes.
+
+   Note the naming quirk: here --color-brass-bright and
+   --color-royal-bright are *darker* than their base tokens. "Bright"
+   means "more prominent", not literally lighter — these are the
+   text-safe variants in each theme. Do not "fix" this.
+*/
+body.theme-light {
+  --color-bg: #F4F6FB;
+  --color-bg-raised: #FFFFFF;
+  --color-ivory: #101A33;
+  --color-ivory-dim: #5A6884;
+
+  --color-brass: #8C6B23;
+  --color-brass-bright: #6F5417;
+  --color-on-brass: #FFFDF6;
+
+  --color-royal: #24439A;
+  --color-royal-bright: #1E3A8A;
+
+  --color-urgent-text: #A85F12;
+
+  --color-error: #A81E15;
+  --color-error-border: rgba(168, 30, 21, 0.65);
+
+  --color-border: rgba(16, 26, 51, 0.14);
+  --color-header-bg: rgba(244, 246, 251, 0.88);
+  --shadow-glow: 0 16px 36px -18px rgba(140, 107, 35, 0.28);
+  --shadow-lift: 0 16px 36px -18px rgba(36, 67, 154, 0.25);
+  --shadow-card: 0 20px 40px -22px rgba(16, 26, 51, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+    --transition-med: 0ms;
+  }
+}

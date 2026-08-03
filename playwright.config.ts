@@ -27,7 +27,11 @@ export default defineConfig({
   },
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:3000/admin/login",
+    // The catalogue is the app's front door now. The admin spec opens
+    // with a page.goto, which runs under Playwright's 30s navigation
+    // timeout and absorbs its own cold compile; a catalogue assertion
+    // firing against an uncompiled first paint would not.
+    url: "http://localhost:3000/bg/lots",
     reuseExistingServer: true,
     timeout: 60_000,
   },

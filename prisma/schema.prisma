@@ -270,9 +270,43 @@ model Property {
   cadastralId   String?      @map("cadastral_id")
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  lots Lot[]
+  lots   Lot[]
+  images PropertyImage[]
 
   @@map("properties")
+}
+
+// Gallery photography for a property. `storageKey` is storage-relative,
+// never a URL — the URL shape belongs to the storage adapter
+// (src/server/storage), so moving from local disk to S3 touches no rows.
+//
+// Note the contrast with LotDocument: legal packs are private and must
+// never sit in the web root (§5). These are public marketing assets and
+// deliberately do.
+model PropertyImage {
+  id         String @id @default(uuid()) @db.Uuid
+  propertyId String @map("property_id") @db.Uuid
+  storageKey String @map("storage_key")
+  // Required in both languages for the same reason Property.title is:
+  // an alt attribute is user-facing copy, and a half-translated site is
+  // a bug the type system should catch at the point of insert.
+  altBg      String @map("alt_bg")
+  altEn      String @map("alt_en")
+  sortOrder  Int    @default(0) @map("sort_order")
+  // Not nullable: next/image needs intrinsic dimensions to reserve
+  // layout space. An optional width/height is a layout-shift bug
+  // waiting for its first upload.
+  width      Int
+  height     Int
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // The only cascade in this schema. An image is an owned child with no
+  // meaning apart from its property — unlike a Lot or a Bid, which are
+  // records of things that happened and take the default Restrict.
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, sortOrder])
+  @@map("property_images")
 }
 
 // An auction *of* a property — one property can be auctioned more than
@@ -315,6 +349,12 @@ model Lot {
   fees                 Fee[]
 
   @@unique([propertyId, lotNumber])
+  // The public catalogue query is
+  //   WHERE status IN (...) ORDER BY effective_close_at ASC NULLS LAST
+  // so one composite serves both the filter and the sort. No separate
+  // index on `status` (this one's leftmost column covers it) and none on
+  // `property_id` (the unique above already leads with it).
+  @@index([status, effectiveCloseAt])
   @@map("lots")
 }
 

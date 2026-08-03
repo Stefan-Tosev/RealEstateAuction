@@ -24,7 +24,16 @@ export function ThemeToggle({ labelToLight, labelToDark }: {
   }, []);
 
   function toggle() {
-    const next: Theme = theme === "light" ? "dark" : "light";
+    /*
+     * Read the live DOM rather than the `theme` state. State starts null
+     * and is only filled in by the mount effect, so a click landing
+     * before hydration settles would compute "light" from null — and on
+     * a page that was already light, the button would appear dead.
+     * The body class is the single source of truth here; the state
+     * exists only to label the button.
+     */
+    const isLight = document.body.classList.contains("theme-light");
+    const next: Theme = isLight ? "dark" : "light";
     document.body.classList.remove("theme-dark", "theme-light");
     document.body.classList.add(`theme-${next}`);
     try {

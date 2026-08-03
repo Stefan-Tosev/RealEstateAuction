@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import "../admin.css";
 import { auth } from "@/server/identity/auth";
 import { logoutAction } from "../actions";
 

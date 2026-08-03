@@ -18,7 +18,9 @@ import sharp from "sharp";
  * Run: node scripts/generate-placeholder-images.mjs
  */
 
-const OUT_ROOT = path.join(process.cwd(), "public", "media", "properties");
+// Not public/ — Next only serves that directory as it existed at build
+// time, so media lives outside it and goes through a route handler.
+const OUT_ROOT = path.join(process.cwd(), "media", "properties");
 const WIDTH = 1600;
 const HEIGHT = 1200;
 

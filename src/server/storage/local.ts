@@ -3,15 +3,15 @@ import path from "node:path";
 import type { MediaStorage } from "./types";
 
 /*
- * Local disk. Files sit under `public/media/<storageKey>` and are served
- * by Next's static handler — which is why next/image needs no
- * `remotePatterns` entry for them.
+ * Local disk, at `<repo>/media/<storageKey>`, served by the route
+ * handler at src/app/media/[...key]/route.ts.
  *
- * Note the asymmetry with lot_documents, and keep it: legal packs are
- * private and must never live in the web root (docs/architecture.md §5 —
- * private bucket, signed URLs, Content-Disposition: attachment).
- * Property photographs are public marketing assets, so the public
- * directory is right for them, and only for them.
+ * NOT `public/`. Next builds a static manifest of that directory at
+ * build time, so a file written there at runtime is simply not served —
+ * uploads worked perfectly under `next dev` and 404'd under
+ * `next start`. Serving through a route handler costs a Node hop and
+ * makes dev and production behave identically, which is the trade worth
+ * making.
  *
  * A caveat for deployment: writes here do not survive a container
  * rebuild, and do not exist on a second instance. That is fine while
@@ -19,7 +19,7 @@ import type { MediaStorage } from "./types";
  * to object storage changes this file and nothing else.
  */
 
-const MEDIA_ROOT = path.join(process.cwd(), "public", "media");
+const MEDIA_ROOT = path.join(process.cwd(), "media");
 
 /**
  * Resolve a key to an absolute path, refusing anything that escapes the
@@ -27,7 +27,7 @@ const MEDIA_ROOT = path.join(process.cwd(), "public", "media");
  * sequence reaching this function would be writing arbitrary files as
  * the server user — worth one comparison to make impossible.
  */
-function resolveKey(storageKey: string): string {
+export function resolveKey(storageKey: string): string {
   const target = path.resolve(MEDIA_ROOT, storageKey);
   const root = path.resolve(MEDIA_ROOT);
   if (target !== root && !target.startsWith(root + path.sep)) {

@@ -17,6 +17,12 @@ import baseConfig from "./playwright.config";
  * Run with `npm run test:e2e:prod`, which builds first. A separate
  * config rather than an env var because inline `VAR=x cmd` in an npm
  * script is not portable to Windows.
+ *
+ * One trap worth knowing: this leaves a production build in `.next`, and
+ * a subsequent `npm run test:e2e` makes `next dev` recompile everything
+ * from it. That run takes minutes rather than seconds and blows the
+ * expect timeout on most specs — 40 spurious failures, with nothing
+ * actually broken. Run `npm run clean` between the two.
  */
 export default defineConfig({
   ...baseConfig,

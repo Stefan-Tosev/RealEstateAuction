@@ -22,7 +22,7 @@ import type { LotStatus, PropertyType } from "@prisma/client";
  */
 
 export type SeedImage = {
-  /** Filename under public/media/properties/<slug>/ */
+  /** Filename under media/properties/<slug>/ */
   file: string;
   altBg: string;
   altEn: string;

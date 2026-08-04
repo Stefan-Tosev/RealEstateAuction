@@ -40,17 +40,30 @@ export default auth((req) => {
     return res;
   }
 
-  // ---- Admin: unchanged from Phase 0 ----
-  const isLoggedIn = !!req.auth;
+  /*
+   * ---- Admin ----
+   *
+   * "Is there a session" is NOT the question. One Auth.js instance
+   * serves operators and bidders, so a signed-in bidder carries a
+   * perfectly valid session — and before this checked `kind`, one could
+   * walk straight past the gate to /admin/lots. The page-level
+   * requireAdmin() still refused to hand over data, so nothing leaked,
+   * but the visitor got an unhandled server error instead of a redirect
+   * and the boundary was being enforced one layer too late.
+   *
+   * Anything that is not an operator is treated here exactly as if it
+   * were signed out.
+   */
+  const isOperator = req.auth?.user?.kind === "admin";
   const isLoginPage = pathname === "/admin/login";
 
-  if (!isLoggedIn && !isLoginPage) {
+  if (!isOperator && !isLoginPage) {
     const loginUrl = new URL("/admin/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isLoggedIn && isLoginPage) {
+  if (isOperator && isLoginPage) {
     return NextResponse.redirect(new URL("/admin", req.nextUrl.origin));
   }
 });

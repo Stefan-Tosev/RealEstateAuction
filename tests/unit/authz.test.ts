@@ -12,8 +12,15 @@ vi.mock("@/server/identity/auth", () => ({ auth: () => authMock() }));
 const { ADMIN_ONLY_ACTIONS, AuthorizationError, canPerform, currentAdmin, requireAdmin, requireRoleFor } =
   await import("@/server/identity/authz");
 
+/*
+ * `kind` is required. Operator and bidder sessions come from the same
+ * Auth.js instance, so a session without it is not trusted as staff —
+ * see tests/unit/session-kind.test.ts for that boundary specifically.
+ */
 function session(role: "admin" | "staff") {
-  return { user: { id: `${role}-id`, email: `${role}@auctionhouse.test`, name: role, role } };
+  return {
+    user: { id: `${role}-id`, email: `${role}@auctionhouse.test`, name: role, kind: "admin", role },
+  };
 }
 
 describe("canPerform", () => {

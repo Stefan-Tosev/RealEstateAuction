@@ -1,0 +1,204 @@
+/* ---------------------------------------------------
+   Public forms — registration, sign-in, verification
+--------------------------------------------------- */
+/*
+   Ported from css/styles.css with class names kept identical, so the
+   port stays diffable against the v1 original.
+*/
+
+.auth-section { padding-block: 56px 96px; }
+
+.auth-inner {
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.auth-inner.narrow { max-width: 460px; }
+
+.form-card {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-top: 2px solid var(--color-brass);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 32px;
+  margin-top: 40px;
+}
+
+.field-group {
+  border: none;
+  padding: 0;
+  margin: 0 0 28px;
+}
+
+.field-legend {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-royal-bright);
+  padding: 0;
+  margin-bottom: 16px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.field { margin-bottom: 18px; }
+.field-grid .field { margin-bottom: 0; }
+
+.field-label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 500;
+  margin-bottom: 7px;
+}
+
+.req {
+  color: var(--color-error);
+  margin-left: 2px;
+}
+
+.field-input {
+  width: 100%;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-ivory);
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 0.95rem;
+  transition: border-color var(--transition-fast);
+}
+
+.field-input:hover { border-color: rgba(100, 134, 216, 0.4); }
+.field-input:focus-visible {
+  outline: 2px solid var(--color-royal-bright);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.field-input[aria-invalid="true"] { border-color: var(--color-error-border); }
+
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--color-ivory-dim);
+}
+
+/*
+   Errors never rely on colour alone — the ⚠ glyph carries the meaning
+   for anyone who cannot distinguish the hue, alongside aria-invalid and
+   aria-describedby for anyone not seeing it at all.
+*/
+.field-error {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: var(--color-error);
+}
+.field-error::before { content: "⚠ "; }
+
+/* Account type toggle */
+.type-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.type-toggle button {
+  flex: 1;
+  padding: 11px 16px;
+  font-size: 0.9rem;
+  color: var(--color-ivory-dim);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.type-toggle button:hover { color: var(--color-ivory); }
+.type-toggle button[aria-pressed="true"] {
+  background: var(--color-royal);
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* Consent checkboxes */
+.consent {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.consent input[type="checkbox"] {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: var(--color-royal);
+}
+
+.consent label {
+  font-size: 0.88rem;
+  color: var(--color-ivory-dim);
+  line-height: 1.5;
+}
+
+/* The honeypot. Off-screen rather than display:none — some bots skip
+   hidden fields, and a positioned one still looks fillable to them. */
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.form-notice {
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+}
+.form-notice[data-tone="error"] {
+  border-color: var(--color-error-border);
+  color: var(--color-error);
+}
+.form-notice[data-tone="ok"] {
+  border-color: rgba(100, 134, 216, 0.6);
+  color: var(--color-royal-bright);
+}
+
+.form-footer {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.9rem;
+  color: var(--color-ivory-dim);
+}
+.form-footer a { color: var(--color-royal-bright); }
+
+.auth-result {
+  text-align: center;
+  padding-block: 32px;
+}
+.auth-result h1 { margin-bottom: 16px; }
+.auth-result p {
+  color: var(--color-ivory-dim);
+  max-width: 46ch;
+  margin-inline: auto;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 640px) {
+  .field-grid { grid-template-columns: 1fr; gap: 18px; }
+  .field-grid .field { margin-bottom: 0; }
+  .form-card { padding: 22px 18px; }
+  .auth-section { padding-block: 40px 64px; }
+}

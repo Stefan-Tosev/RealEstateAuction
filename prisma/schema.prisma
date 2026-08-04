@@ -205,8 +205,68 @@ model User {
   viewingBookings ViewingBooking[]
   deposits        Deposit[]
   outboxEntries   Outbox[]
+  verificationTokens EmailVerificationToken[]
+  consents        Consent[]
 
   @@map("users")
+}
+
+// Single-use email verification, per docs/server-validation.md §5.
+//
+// Only the hash is stored: a leaked database must not hand an attacker
+// working verification links. The plaintext token exists once, in the
+// email, and is never persisted anywhere.
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  // SHA-256 of a >=128-bit random token. Unique so a lookup is a single
+  // indexed hit rather than a scan-and-compare.
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  // Set on redemption. A used token is kept rather than deleted so a
+  // replay can be told apart from a token that never existed.
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+enum ConsentKind {
+  terms
+  marketing
+
+  @@map("consent_kind")
+}
+
+// Consent records, per docs/server-validation.md §7.
+//
+// Separate rows per kind, independently revocable — withdrawing
+// marketing consent must never disable the account. Each row carries the
+// policy version and the exact wording that was on screen: "the user
+// accepted the terms" without the version is unusable in a dispute.
+//
+// Append-mostly: a withdrawal sets revokedAt rather than deleting, so the
+// history of what was agreed and when survives.
+model Consent {
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  kind          ConsentKind
+  granted       Boolean
+  policyVersion String      @map("policy_version")
+  // The exact string rendered next to the checkbox, stored verbatim.
+  wording       String      @db.Text
+  ip            String?
+  userAgent     String?     @map("user_agent")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  revokedAt     DateTime?   @map("revoked_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@map("consents")
 }
 
 // Separate from User on purpose (§2): an account is not a paddle.

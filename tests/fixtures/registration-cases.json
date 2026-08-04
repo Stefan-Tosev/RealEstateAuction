@@ -1,0 +1,171 @@
+{
+  "$comment": [
+    "Shared parity fixtures for bidder registration, per docs/server-validation.md §9.",
+    "The client validators (js/register.js today, a React form later) and the server",
+    "rules WILL drift unless something forces them not to. Both must run these cases.",
+    "A case passing one and failing the other is a build failure.",
+    "",
+    "Seeded from the adversarial matrix in the spec. 'expectedCodes' is the exact set",
+    "of error codes expected — an empty array means the input must be accepted.",
+    "Codes are never prose: the API is locale-agnostic and the client owns the copy."
+  ],
+
+  "mustAccept": [
+    {
+      "name": "cyrillic local part and IDN-ish domain",
+      "field": "email",
+      "value": "иван+auction@фирма.bg",
+      "why": "An ASCII-only email pattern is a guaranteed defect on a Bulgarian site."
+    },
+    {
+      "name": "apostrophe and hyphen across scripts",
+      "field": "name",
+      "value": "O'Brien-Смит",
+      "why": "\\p{L} rather than [A-Za-z]; also covers non-Bulgarian bidders."
+    },
+    {
+      "name": "sofia landline with spaces",
+      "field": "phone",
+      "value": "02 987 6543",
+      "normalised": "+35929876543",
+      "why": "Leading 0 is the trunk prefix. Normalisation runs before validation."
+    },
+    {
+      "name": "plovdiv landline already in E.164",
+      "field": "phone",
+      "value": "+35932123456",
+      "normalised": "+35932123456",
+      "why": "BG landlines vary in length; 7-8 subscriber digits must both pass."
+    },
+    {
+      "name": "bulgarian mobile",
+      "field": "phone",
+      "value": "0888 123 456",
+      "normalised": "+359888123456"
+    },
+    {
+      "name": "double-zero international prefix",
+      "field": "phone",
+      "value": "0035932123456",
+      "normalised": "+35932123456",
+      "why": "00 is the international prefix and must map to +."
+    },
+    {
+      "name": "foreign number",
+      "field": "phone",
+      "value": "+44 20 7946 0958",
+      "normalised": "+442079460958",
+      "why": "Foreign bidders exist. Real verification is possession via OTP."
+    },
+    {
+      "name": "64-character passphrase with spaces",
+      "field": "password",
+      "value": "correct horse battery staple correct horse battery staple abcdef",
+      "why": "NIST: >=64 must be accepted, spaces are legal, no composition rules."
+    },
+    {
+      "name": "18th birthday is today",
+      "field": "dateOfBirth",
+      "value": "@TODAY_MINUS_18_YEARS",
+      "why": "The case naive UTC arithmetic gets wrong. Must succeed."
+    },
+    {
+      "name": "valid 9-digit EIK",
+      "field": "eik",
+      "value": "831641791"
+    },
+    {
+      "name": "marketing declined still registers",
+      "field": "marketing",
+      "value": false,
+      "why": "Marketing consent must never gate account creation."
+    }
+  ],
+
+  "mustReject": [
+    {
+      "name": "18th birthday is tomorrow",
+      "field": "dateOfBirth",
+      "value": "@TODAY_MINUS_18_YEARS_PLUS_1_DAY",
+      "expectedCodes": ["UNDERAGE"]
+    },
+    {
+      "name": "impossible calendar date",
+      "field": "dateOfBirth",
+      "value": "1990-02-31",
+      "expectedCodes": ["INVALID_FORMAT"],
+      "why": "Round-tripping through Date catches what a regex cannot."
+    },
+    {
+      "name": "future date of birth",
+      "field": "dateOfBirth",
+      "value": "@TODAY_PLUS_1_DAY",
+      "expectedCodes": ["FUTURE_DATE"]
+    },
+    {
+      "name": "EIK with transposed digits",
+      "field": "eik",
+      "value": "831641719",
+      "expectedCodes": ["CHECKSUM_FAILED"],
+      "why": "Transposition is the commonest typo and exactly what mod-11 catches."
+    },
+    {
+      "name": "EIK of the wrong length",
+      "field": "eik",
+      "value": "12345678",
+      "expectedCodes": ["INVALID_FORMAT"]
+    },
+    {
+      "name": "bidi override in a name",
+      "field": "name",
+      "value": "Ivan‮exe",
+      "expectedCodes": ["INVALID_CHARS"],
+      "why": "U+202E reverses rendering; what is displayed is not what is stored."
+    },
+    {
+      "name": "zero-width space in a name",
+      "field": "name",
+      "value": "Ivan​Petrov",
+      "expectedCodes": ["INVALID_CHARS"]
+    },
+    {
+      "name": "terms as a string rather than boolean true",
+      "field": "terms",
+      "value": "true",
+      "expectedCodes": ["NOT_ACCEPTED"],
+      "why": "Truthiness is not consent. Only boolean true counts."
+    },
+    {
+      "name": "terms as 1",
+      "field": "terms",
+      "value": 1,
+      "expectedCodes": ["NOT_ACCEPTED"]
+    },
+    {
+      "name": "11-character password",
+      "field": "password",
+      "value": "elevenchars",
+      "expectedCodes": ["TOO_SHORT"]
+    },
+    {
+      "name": "password containing the email local part",
+      "field": "password",
+      "value": "ivanpetrov-longenough-passphrase",
+      "context": { "email": "ivanpetrov@example.bg" },
+      "expectedCodes": ["CONTAINS_PERSONAL"]
+    },
+    {
+      "name": "non-empty honeypot",
+      "field": "website",
+      "value": "http://spam.example",
+      "expectedCodes": [],
+      "why": "Returns 202 and is silently discarded. Never reveal the trap."
+    },
+    {
+      "name": "email without a dot in the domain",
+      "field": "email",
+      "value": "someone@localhost",
+      "expectedCodes": ["INVALID_FORMAT"]
+    }
+  ]
+}

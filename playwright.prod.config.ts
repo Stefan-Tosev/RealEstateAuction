@@ -26,6 +26,12 @@ import baseConfig from "./playwright.config";
  */
 export default defineConfig({
   ...baseConfig,
+  /*
+   * No route warming needed: a production build compiles everything
+   * ahead of time, which is also why this suite finishes in well under a
+   * minute while the dev one takes minutes.
+   */
+  globalSetup: undefined,
   webServer: {
     ...baseConfig.webServer,
     command: "npm run start",

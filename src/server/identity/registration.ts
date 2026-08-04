@@ -14,6 +14,7 @@ import {
   isValidVat,
   normalisePhone,
 } from "./validators";
+import { verifyFormToken } from "./form-token";
 import { issueVerificationToken } from "./verification";
 
 /*
@@ -48,6 +49,8 @@ export type RegistrationInput = {
   terms: unknown;
   marketing: unknown;
   website: unknown;
+  /** Server-issued, HMAC-signed. Proves when the form was rendered (§6). */
+  formToken?: unknown;
   locale?: unknown;
 };
 
@@ -197,6 +200,22 @@ export async function register(
   if (value.website) {
     await padTo(startedAt);
     return { status: "pending_verification" };
+  }
+
+  /*
+   * §6 time gate. Same silent discard as the honeypot for anything that
+   * looks automated; a genuinely expired token gets a real error,
+   * because a person who left the tab open overnight deserves to be told
+   * to reload rather than to think they registered.
+   */
+  const tokenVerdict = verifyFormToken(input.formToken);
+  if (tokenVerdict === "too-fast" || tokenVerdict === "bad-signature") {
+    await padTo(startedAt);
+    return { status: "pending_verification" };
+  }
+  if (tokenVerdict === "expired" || tokenVerdict === "malformed") {
+    await padTo(startedAt);
+    return { status: "invalid", errors: [{ field: "_form", code: "FORM_EXPIRED" }] };
   }
 
   const errors = validate(value);

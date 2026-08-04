@@ -12,6 +12,7 @@ import "@/styles/tokens.css";
 import "@/styles/base.css";
 import "@/styles/chrome.css";
 import "@/styles/catalogue.css";
+import "@/styles/forms.css";
 
 /*
  * Root layout for the public catalogue. See (admin)/layout.tsx for why

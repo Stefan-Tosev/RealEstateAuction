@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { issueFormToken } from "@/server/identity/form-token";
 import { POLICY_VERSION, register } from "@/server/identity/registration";
 
 /*
@@ -46,6 +47,8 @@ function input(overrides: Record<string, unknown> = {}) {
     terms: true,
     marketing: false,
     website: "",
+    // Issued 5s ago so it clears the 2s time gate (§6).
+    formToken: issueFormToken(Date.now() - 5_000),
     ...overrides,
   };
 }
@@ -237,6 +240,48 @@ describe("company fields", () => {
     expect(user.companyName).toBeNull();
     expect(user.eik).toBeNull();
     expect(user.vat).toBeNull();
+  });
+});
+
+describe("time gate (§6)", () => {
+  it("silently discards a submission made too fast", async () => {
+    /*
+     * A token issued this instant means the form came back in under the
+     * 2s minimum fill time. Same silent-discard path as the honeypot:
+     * the ordinary success shape, and nothing created.
+     */
+    const data = input({ formToken: issueFormToken(Date.now()) });
+
+    await expect(register(data, CONTEXT)).resolves.toEqual({ status: "pending_verification" });
+    expect(await prisma.user.count({ where: { email: String(data.email) } })).toBe(0);
+  });
+
+  it("silently discards a forged token", async () => {
+    // HMAC-signed, so a bot cannot simply invent an older timestamp —
+    // which is why a client-measured "seconds since load" would be
+    // worthless here.
+    const forged = `${Date.now() - 60_000}.not-a-real-signature`;
+    const data = input({ formToken: forged });
+
+    await expect(register(data, CONTEXT)).resolves.toEqual({ status: "pending_verification" });
+    expect(await prisma.user.count({ where: { email: String(data.email) } })).toBe(0);
+  });
+
+  it("tells a person their form expired rather than pretending it worked", async () => {
+    // Someone who left the tab open overnight deserves to be told to
+    // reload, not to believe they registered.
+    const threeHoursAgo = Date.now() - 3 * 60 * 60 * 1000;
+    const result = await register(input({ formToken: issueFormToken(threeHoursAgo) }), CONTEXT);
+
+    expect(result).toMatchObject({ status: "invalid" });
+    if (result.status === "invalid") {
+      expect(result.errors).toContainEqual({ field: "_form", code: "FORM_EXPIRED" });
+    }
+  });
+
+  it("refuses a submission carrying no token at all", async () => {
+    const result = await register(input({ formToken: undefined }), CONTEXT);
+    expect(result).toMatchObject({ status: "invalid" });
   });
 });
 

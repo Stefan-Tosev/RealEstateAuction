@@ -27,13 +27,44 @@ export type AdminActor = {
   role: AdminRole;
 };
 
-/** The signed-in operator, or null. */
+/**
+ * The signed-in operator, or null.
+ *
+ * Asserts `kind === "admin"` explicitly. One Auth.js instance serves
+ * both operators and bidders, so a valid session proves someone is
+ * signed in — not that they are staff. Checking for the presence of a
+ * role instead would be the classic version of this bug: give a bidder a
+ * role field for any reason and the whole admin area opens.
+ */
 export async function currentAdmin(): Promise<AdminActor | null> {
   const session = await auth();
   const user = session?.user;
-  if (!user?.id || !user.role) return null;
+
+  if (!user?.id) return null;
+  if (user.kind !== "admin") return null;
+  if (!user.role) return null;
 
   return { id: user.id, email: user.email ?? "", name: user.name, role: user.role };
+}
+
+export type BidderActor = { id: string; email: string; name?: string | null };
+
+/** The signed-in bidder, or null. Symmetrical, and just as explicit. */
+export async function currentBidder(): Promise<BidderActor | null> {
+  const session = await auth();
+  const user = session?.user;
+
+  if (!user?.id) return null;
+  if (user.kind !== "bidder") return null;
+
+  return { id: user.id, email: user.email ?? "", name: user.name };
+}
+
+/** Any signed-in bidder. Throws so a caller cannot forget to check. */
+export async function requireBidder(): Promise<BidderActor> {
+  const actor = await currentBidder();
+  if (!actor) throw new AuthorizationError("You must be signed in.");
+  return actor;
 }
 
 /** Any signed-in operator. Throws rather than returning null so a caller cannot forget to check. */

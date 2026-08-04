@@ -94,8 +94,8 @@ describe("normalisation", () => {
   it("applies NFKC before hashing", () => {
     // Composed and decomposed forms look identical on screen; without
     // NFKC the user is locked out by something they cannot see.
-    const composed = "café-passphrase-x";
-    const decomposed = "café-passphrase-x";
+    const decomposed = "cafe" + String.fromCodePoint(0x0301) + " passphrase-x"; // e + combining acute
+    const composed = decomposed.normalize("NFC"); // single code point
 
     expect(composed).not.toBe(decomposed);
     expect(normalisePassword(composed)).toBe(normalisePassword(decomposed));

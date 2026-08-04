@@ -27,20 +27,26 @@ export const authConfig = {
    */
   trustHost: true,
   callbacks: {
+    /*
+     * `kind` distinguishes an operator session from a bidder one. It is
+     * set here, from the provider's authorize() result, and never
+     * inferred downstream — a check that reasons "it has a role, so it
+     * must be an admin" is one refactor away from letting a bidder
+     * through.
+     */
     jwt({ token, user }) {
       if (user) {
-        token.adminUserId = user.id;
+        token.subjectId = user.id;
+        token.kind = user.kind;
         token.role = user.role;
       }
       return token;
     },
     session({ session, token }) {
-      if (token.adminUserId) {
-        session.user.id = token.adminUserId;
-      }
-      if (token.role) {
-        session.user.role = token.role;
-      }
+      if (token.subjectId) session.user.id = token.subjectId;
+      if (token.kind) session.user.kind = token.kind;
+      // Absent for bidders, and that is the point.
+      session.user.role = token.role;
       return session;
     },
   },

@@ -8,7 +8,9 @@ export async function loginAction(_prevState: string | undefined, formData: Form
   const password = formData.get("password");
 
   try {
-    await signIn("credentials", {
+    // Provider id, not a generic label: "admin" consults admin_users and
+    // nothing else, so a bidder address can never sign in here.
+    await signIn("admin", {
       email,
       password,
       redirectTo: "/admin",

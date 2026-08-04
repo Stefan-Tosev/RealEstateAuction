@@ -480,6 +480,8 @@ model Viewing {
   lot      Lot              @relation(fields: [lotId], references: [id])
   bookings ViewingBooking[]
 
+  // Slots are always listed for one lot, soonest first.
+  @@index([lotId, startsAt])
   @@map("viewings")
 }
 
@@ -493,6 +495,15 @@ model ViewingBooking {
   viewing Viewing @relation(fields: [viewingId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
 
+  /*
+   * One row per person per slot, ever. Without this a double-click books
+   * the same viewing twice and silently consumes two places.
+   *
+   * Cancelling therefore flips `status` rather than deleting the row:
+   * the record that this person was once booked matters when a seller
+   * asks who was shown round.
+   */
+  @@unique([viewingId, userId])
   @@map("viewing_bookings")
 }
 

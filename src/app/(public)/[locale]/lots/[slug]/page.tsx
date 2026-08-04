@@ -8,6 +8,8 @@ import { getDictionary } from "@/lib/i18n";
 import { localeAlternates } from "@/lib/i18n/alternates";
 import { isLocale, OG_LOCALE, otherLocale } from "@/lib/i18n/locales";
 import { getPublicLotBySlug, listSimilarLots } from "@/server/catalogue/lots";
+import { getLotPack, resolveViewer } from "@/server/documents/lot-documents";
+import { LegalPack } from "@/components/legal-pack";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,15 @@ export default async function LotDetailPage({ params }: Params) {
 
   const t = getDictionary(locale);
   const similar = await listSimilarLots(lot, locale);
+
+  /*
+   * The pack is viewer-dependent: everyone sees which documents exist,
+   * but filenames and links are gated. Resolved per request, so a
+   * signed-in bidder and an anonymous visitor get different payloads
+   * from the same URL.
+   */
+  const viewer = await resolveViewer();
+  const pack = await getLotPack(lot.id, viewer);
   const { phase } = lot;
 
   return (
@@ -85,6 +96,8 @@ export default async function LotDetailPage({ params }: Params) {
               <h2 className="section-title">{t.detail.description}</h2>
               <p>{lot.description}</p>
             </section>
+
+            <LegalPack documents={pack} locale={locale} />
 
             <section className="property-location-section">
               <h2 className="section-title">{t.detail.location}</h2>

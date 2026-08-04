@@ -89,6 +89,8 @@ export function toPublicLotDetail(row: LotDetailRow, locale: Locale): PublicLotD
 
   return {
     ...toPublicLotSummary(row, locale),
+    // Detail only — the index has no need for it. See types.ts.
+    id: row.id,
     propertyType: property.propertyType,
     description: locale === "bg" ? property.descriptionBg : property.descriptionEn,
     address: property.address,

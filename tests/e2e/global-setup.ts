@@ -30,9 +30,37 @@ const ROUTES = [
   "/media/properties/dvustaen-karshiyaka-plovdiv/01.jpg",
 ];
 
+/*
+ * Re-seed before warming.
+ *
+ * The catalogue's close dates are stored as offsets from seed time, so a
+ * database seeded yesterday has lots that have since closed — and the
+ * suite then fails on countdowns and urgency badges with nothing
+ * actually broken. That cost a full debugging round: "Приключил" where a
+ * ticking clock was expected looks exactly like a bug.
+ *
+ * The seed is idempotent and upserts by natural key, so this refreshes
+ * the timings without disturbing anything a spec creates for itself.
+ */
+async function reseed() {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+
+  try {
+    await promisify(execFile)("npm", ["run", "db:seed"], { shell: true, timeout: 60_000 });
+    console.log("[global-setup] re-seeded the catalogue");
+  } catch (error) {
+    // Not fatal: a spec that needs the data will fail with a far more
+    // specific message than anything this could print.
+    console.warn("[global-setup] re-seed failed:", (error as Error).message.split("\n")[0]);
+  }
+}
+
 export default async function globalSetup() {
   const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
   const context = await request.newContext({ baseURL });
+
+  await reseed();
 
   const startedAt = Date.now();
 

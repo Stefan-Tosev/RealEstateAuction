@@ -15,7 +15,17 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { bidderApproval: { count: async () => approvalCount } },
 }));
 
-const { canAccess, visibilitiesFor } = await import("@/server/documents/access");
+const { canAccess, describeForViewer } = await import("@/server/documents/access");
+
+const DOCUMENT = {
+  id: "doc-1",
+  kind: "encumbrances" as const,
+  visibility: "registered" as const,
+  size: 240_000n,
+  mime: "application/pdf",
+  // Real filenames carry addresses, owner names and case numbers.
+  filename: "тежести-ул-Съборна-14-Петров.pdf",
+};
 
 beforeEach(() => {
   approvalCount = 0;
@@ -94,16 +104,58 @@ describe("operators", () => {
   });
 });
 
-describe("what may be listed", () => {
-  it("shows an anonymous visitor only public documents", async () => {
-    // Listing is itself a disclosure: knowing a lot has an encumbrances
-    // certificate is information about the lot.
-    expect(visibilitiesFor({ kind: "anonymous" })).toEqual(["public"]);
+describe("what a viewer is told about a document they cannot open", () => {
+  it("shows an anonymous visitor the kind but not the filename", async () => {
+    /*
+     * The gate exists to capture leads (§5). Someone who cannot see that
+     * a pack exists has no reason to register for it, so hiding the
+     * listing would make the tier pointless.
+     *
+     * Kinds are safe: every lot has an encumbrances certificate.
+     * Filenames are not — they carry addresses and owner names.
+     */
+    const listed = await describeForViewer(DOCUMENT, { kind: "anonymous" });
+
+    expect(listed.kind).toBe("encumbrances");
+    expect(listed.sizeBytes).toBe(240_000);
+    expect(listed.downloadable).toBe(false);
+    expect(listed.reason).toBe("sign-in-required");
+    expect(listed.filename).toBeNull();
   });
 
-  it("lets a signed-in bidder see the full index", async () => {
-    // They can see that a restricted document exists; whether they can
-    // download it is a separate question, answered by canAccess.
-    expect(visibilitiesFor({ kind: "bidder", userId: "u1" })).toContain("approved_bidders");
+  it("does not leak the filename anywhere in the payload", async () => {
+    // Guards against the name reappearing through some other field.
+    const listed = await describeForViewer(DOCUMENT, { kind: "anonymous" });
+
+    expect(JSON.stringify(listed)).not.toContain("Съборна");
+    expect(JSON.stringify(listed)).not.toContain("Петров");
+  });
+
+  it("reveals the filename once the viewer can download it", async () => {
+    const listed = await describeForViewer(DOCUMENT, { kind: "bidder", userId: "u1" });
+
+    expect(listed.downloadable).toBe(true);
+    expect(listed.filename).toBe(DOCUMENT.filename);
+    expect(listed.reason).toBeUndefined();
+  });
+
+  it("tells a signed-in bidder that approval is what is missing", async () => {
+    // "Sign in" and "get approved" are different asks; saying which one
+    // is the difference between a lead and a dead end.
+    approvalCount = 0;
+    const listed = await describeForViewer(
+      { ...DOCUMENT, visibility: "approved_bidders" },
+      { kind: "bidder", userId: "u1" },
+    );
+
+    expect(listed.downloadable).toBe(false);
+    expect(listed.reason).toBe("approval-required");
+    expect(listed.filename).toBeNull();
+  });
+
+  it("converts the bigint size, which would not survive serialization", async () => {
+    const listed = await describeForViewer(DOCUMENT, { kind: "admin" });
+    expect(typeof listed.sizeBytes).toBe("number");
+    expect(() => JSON.stringify(listed)).not.toThrow();
   });
 });

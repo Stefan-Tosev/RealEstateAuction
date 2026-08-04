@@ -225,6 +225,17 @@ test.describe("the reserve price never reaches the client", () => {
    * the bytes on the wire — and would catch a leak introduced anywhere
    * downstream of the mappers.
    */
+  /*
+   * Bounded by digit boundaries, not a bare substring search.
+   *
+   * A plain `toContain("11000000")` produced a false alarm: those digits
+   * occur inside a float in Next's dev-mode RSC payload
+   * ("start":163.26110000000335). A leak-detector that cries wolf gets
+   * ignored, which is worse than not having one.
+   */
+  const containsAmount = (body: string, amount: bigint) =>
+    new RegExp(`(?<!\\d)${amount}(?!\\d)`).test(body);
+
   for (const locale of ["bg", "en"] as const) {
     test(`not in the ${locale} detail HTML`, async ({ page }) => {
       const listing = URGENT_LOT;
@@ -233,7 +244,8 @@ test.describe("the reserve price never reaches the client", () => {
       const response = await page.request.get(`/${locale}/lots/${listing.slug}`);
       const body = await response.text();
 
-      expect(body).not.toContain(String(reserveMinor));
+      expect(containsAmount(body, reserveMinor), "raw minor units").toBe(false);
+
       // The major-unit rendering, in both thousands-separator styles.
       const major = Number(reserveMinor / 100n);
       expect(body).not.toContain(major.toLocaleString("en-GB"));
@@ -246,7 +258,8 @@ test.describe("the reserve price never reaches the client", () => {
     const body = await response.text();
 
     for (const listing of LISTINGS) {
-      expect(body).not.toContain(String((listing.startingPriceMinor * 110n) / 100n));
+      const reserveMinor = (listing.startingPriceMinor * 110n) / 100n;
+      expect(containsAmount(body, reserveMinor), `lot ${listing.lotNumber}`).toBe(false);
     }
   });
 });

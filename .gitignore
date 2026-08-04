@@ -22,3 +22,9 @@ next-env.d.ts
 /test-results
 /playwright-report
 /prisma/generated
+
+# Legal-pack documents. Private by definition (docs/architecture.md §5) —
+# нотариален акт, tax valuations, encumbrance certificates. These must
+# never enter version control, and the directory is deliberately outside
+# the web root so nothing can serve them statically.
+/private/

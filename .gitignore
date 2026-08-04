@@ -11,3 +11,14 @@ Thumbs.db
 
 # Env
 .env
+.env.local
+
+# Node / Next.js (v2 app)
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+/coverage
+/test-results
+/playwright-report
+/prisma/generated

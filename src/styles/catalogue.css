@@ -1,0 +1,472 @@
+/* ---------------------------------------------------
+   Lot cards, lots grid, property detail
+--------------------------------------------------- */
+/*
+   Ported from css/styles.css with class names kept identical, so this
+   file stays mechanically diffable against the v1 original.
+
+   One addition: .lot-status-preview. v1 had no preview concept — a lot
+   was simply "closing soon" or "new" — but architecture §1 splits
+   PUBLISHED (preview, no bidding) from BIDDING_OPEN. The badge follows
+   the accent rule: a state label is *structure*, so it takes royal, not
+   gold.
+*/
+
+.lots-section {
+  padding-block: 96px;
+}
+
+.lots-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+}
+
+.lots-count {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-ivory-dim);
+}
+
+.lots-count span { color: var(--color-royal-bright); }
+
+.lots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.lots-empty {
+  padding: 64px 24px;
+  text-align: center;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+}
+.lots-empty p { color: var(--color-ivory-dim); }
+.lots-empty p + p { margin-top: 8px; font-size: 0.9rem; }
+
+/* ---------------------------------------------------
+   Lot cards
+--------------------------------------------------- */
+.lot-card {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color var(--transition-fast), transform var(--transition-med),
+              box-shadow var(--transition-med);
+}
+
+.lot-card:hover {
+  border-color: rgba(100, 134, 216, 0.55);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lift);
+}
+
+.lot-card-media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+}
+
+.lot-card-media > a {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.lot-image {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-color: #101832;
+  background-image: linear-gradient(155deg, rgba(46, 79, 163, 0.3), rgba(10, 16, 32, 0.5));
+}
+
+.lot-image-photo {
+  display: block;
+  object-fit: cover;
+}
+
+.lot-image-1 { background-image: linear-gradient(155deg, rgba(46, 79, 163, 0.42), rgba(10, 16, 32, 0.72)), radial-gradient(circle at 30% 30%, #1d2c55, #0a1020); }
+.lot-image-2 { background-image: linear-gradient(155deg, rgba(100, 134, 216, 0.3), rgba(10, 16, 32, 0.74)), radial-gradient(circle at 70% 30%, #223c6b, #0a1020); }
+.lot-image-3 { background-image: linear-gradient(155deg, rgba(46, 79, 163, 0.3), rgba(10, 16, 32, 0.72)), radial-gradient(circle at 40% 60%, #1a2748, #0a1020); }
+.lot-image-4 { background-image: linear-gradient(155deg, rgba(22, 38, 79, 0.6), rgba(10, 16, 32, 0.76)), radial-gradient(circle at 60% 40%, #182444, #0a1020); }
+.lot-image-5 { background-image: linear-gradient(155deg, rgba(100, 134, 216, 0.26), rgba(10, 16, 32, 0.72)), radial-gradient(circle at 35% 45%, #20305c, #0a1020); }
+.lot-image-6 { background-image: linear-gradient(155deg, rgba(10, 16, 32, 0.5), rgba(10, 16, 32, 0.82)), radial-gradient(circle at 50% 50%, #141c33, #070b17); }
+.lot-image-7 { background-image: linear-gradient(155deg, rgba(46, 79, 163, 0.34), rgba(10, 16, 32, 0.72)), radial-gradient(circle at 55% 35%, #1b2a50, #0a1020); }
+.lot-image-8 { background-image: linear-gradient(155deg, rgba(100, 134, 216, 0.34), rgba(10, 16, 32, 0.7)), radial-gradient(circle at 45% 40%, #243560, #0a1020); }
+
+.lot-tag {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: rgba(10, 16, 32, 0.86);
+  border: 1px solid rgba(201, 169, 97, 0.55);
+  color: #E2C88A;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  z-index: 1;
+}
+
+.lot-status {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  z-index: 1;
+}
+
+.lot-status-closing {
+  background: var(--color-urgent);
+  color: var(--color-on-urgent);
+  font-weight: 500;
+}
+
+/* Preview is a lifecycle state, not urgency — royal, per the accent rule. */
+.lot-status-preview {
+  background: rgba(10, 16, 32, 0.86);
+  border: 1px solid rgba(100, 134, 216, 0.7);
+  color: #6486D8;
+}
+
+.lot-status-new {
+  background: rgba(10, 16, 32, 0.86);
+  border: 1px solid rgba(236, 239, 247, 0.35);
+  color: #ECEFF7;
+}
+
+.lot-card-body { padding: 24px; }
+
+.lot-title {
+  font-size: 1.3rem;
+  margin-bottom: 4px;
+}
+
+.lot-location {
+  color: var(--color-ivory-dim);
+  font-size: 0.9rem;
+  margin-bottom: 14px;
+}
+
+.lot-meta {
+  display: flex;
+  gap: 14px;
+  font-size: 0.82rem;
+  color: var(--color-ivory-dim);
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.lot-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.lot-price-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-ivory-dim);
+  margin-bottom: 6px;
+}
+
+.lot-price {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  color: var(--color-ivory);
+}
+
+.lot-countdown-wrap { text-align: right; }
+
+.lot-countdown {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  color: var(--color-brass-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Urgency is carried by hue *and* weight, so it never reads as
+   "a slightly different gold" next to the champagne countdown. */
+.lot-countdown[data-urgent] {
+  color: var(--color-urgent-text);
+  font-weight: 500;
+}
+
+.lot-countdown[data-closed] {
+  color: var(--color-ivory-dim);
+  font-weight: 400;
+}
+
+/* ---------------------------------------------------
+   Property detail page
+--------------------------------------------------- */
+.property-section { padding-block: 48px 96px; }
+
+.breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-ivory-dim);
+  font-size: 0.9rem;
+  margin-bottom: 32px;
+  transition: color var(--transition-fast);
+}
+.breadcrumb:hover { color: var(--color-royal-bright); }
+
+.property-layout {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 48px;
+  align-items: start;
+}
+
+.property-main > * + * { margin-top: 40px; }
+
+/* Gallery */
+.gallery-main {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.gallery-main .lot-image {
+  width: 100%;
+  height: 100%;
+}
+
+.gallery-thumbs {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.gallery-thumb {
+  width: 96px;
+  height: 72px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color var(--transition-fast);
+}
+.gallery-thumb:hover { border-color: rgba(100, 134, 216, 0.55); }
+.gallery-thumb[aria-current="true"] { border-color: var(--color-royal); }
+
+.gallery-thumb .lot-image {
+  width: 100%;
+  height: 100%;
+}
+
+/* Header block */
+.property-type-tag {
+  display: inline-block;
+  background: rgba(10, 16, 32, 0.86);
+  border: 1px solid rgba(201, 169, 97, 0.55);
+  color: #E2C88A;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  margin-bottom: 16px;
+}
+
+.property-title {
+  font-size: clamp(1.8rem, 1.4rem + 1.6vw, 2.5rem);
+  margin-bottom: 8px;
+}
+
+.property-location {
+  color: var(--color-ivory-dim);
+  font-size: 1rem;
+}
+
+/* Key details grid */
+.key-details {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  padding: 20px;
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.key-detail { text-align: center; }
+
+.key-detail-value {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-ivory);
+}
+
+/* Description */
+.property-description p {
+  color: var(--color-ivory-dim);
+  font-size: 1rem;
+  max-width: 68ch;
+}
+
+/* Location section */
+.property-address {
+  color: var(--color-ivory-dim);
+  margin-bottom: 16px;
+}
+
+.map-placeholder {
+  aspect-ratio: 16 / 7;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-ivory-dim);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+  padding: 24px;
+}
+
+/* Price panel (sticky sidebar) */
+.property-side {
+  position: sticky;
+  top: 96px;
+}
+
+.price-panel {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-top: 2px solid var(--color-brass);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+}
+
+.price-panel-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.price-panel-main { display: flex; flex-direction: column; }
+
+.price-panel-value {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  color: var(--color-ivory);
+}
+
+.price-panel-countdown { text-align: right; }
+
+.price-panel-countdown-value { font-size: 1.3rem; }
+
+.bid-increment-note {
+  color: var(--color-ivory-dim);
+  font-size: 0.82rem;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/*
+   Key dates replace v1's "Place Bid" CTA. Bidding is Phase 3 and
+   registration is Phase 2, so there is nothing for a button to link to —
+   and a gold CTA that goes nowhere is worse than no CTA.
+*/
+.key-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.key-date {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  font-size: 0.88rem;
+}
+
+.key-date dt {
+  color: var(--color-ivory-dim);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.key-date dd {
+  color: var(--color-ivory);
+  text-align: right;
+}
+
+/* Similar properties */
+.similar-properties {
+  margin-top: 80px;
+  padding-top: 64px;
+  border-top: 1px solid var(--color-border);
+}
+
+.similar-properties .section-title { margin-bottom: 32px; }
+
+/* Not found state */
+.property-not-found {
+  text-align: center;
+  padding-block: 64px;
+}
+.property-not-found h1 { margin-bottom: 16px; }
+.property-not-found p {
+  color: var(--color-ivory-dim);
+  margin-bottom: 32px;
+}
+
+/* ---------------------------------------------------
+   Responsive
+--------------------------------------------------- */
+@media (max-width: 1024px) {
+  .lots-grid { grid-template-columns: repeat(2, 1fr); }
+  .property-layout { grid-template-columns: 1fr; }
+  .property-side { position: static; }
+  .key-details { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .lots-grid { grid-template-columns: 1fr; }
+  .lots-section { padding-block: 64px; }
+  .key-details { grid-template-columns: repeat(2, 1fr); }
+  .gallery-thumbs { overflow-x: auto; }
+  .similar-properties .lots-grid {
+    grid-auto-flow: column;
+    grid-auto-columns: 85%;
+    overflow-x: auto;
+    grid-template-columns: none;
+    padding-bottom: 8px;
+  }
+}

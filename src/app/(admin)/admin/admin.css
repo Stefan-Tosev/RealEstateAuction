@@ -1,0 +1,341 @@
+/* Minimal admin-shell styling. Reuses the v1 navy/gold palette values
+   (css/styles.css) for visual continuity — not imported wholesale, since
+   the admin tool doesn't share v1's layout or bilingual pattern. */
+
+:root {
+  --admin-bg: #0a1020;
+  --admin-bg-raised: #131a2e;
+  --admin-border: rgba(236, 239, 247, 0.12);
+  --admin-text: #eceff7;
+  --admin-text-muted: #9aa4c2;
+  --admin-royal: #6486d8;
+  --admin-brass: #c9a961;
+  --admin-error: #e2857a;
+}
+
+.admin-auth {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: system-ui, sans-serif;
+}
+
+.admin-auth-card {
+  width: 100%;
+  max-width: 22rem;
+  padding: 2.5rem;
+  background: var(--admin-bg-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+}
+
+.admin-auth-card h1 {
+  font-size: 1.25rem;
+  margin: 0 0 1.5rem;
+}
+
+.admin-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.admin-auth-form label {
+  font-size: 0.85rem;
+  color: var(--admin-text-muted);
+  margin-top: 0.75rem;
+}
+
+.admin-auth-form input {
+  padding: 0.55rem 0.65rem;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.3rem;
+  color: var(--admin-text);
+  font-size: 0.95rem;
+}
+
+.admin-auth-form button {
+  margin-top: 1.5rem;
+  padding: 0.6rem;
+  background: var(--admin-brass);
+  color: #0a1020;
+  border: none;
+  border-radius: 0.3rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-auth-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.admin-auth-error {
+  margin-top: 0.75rem;
+  color: var(--admin-error);
+  font-size: 0.85rem;
+}
+
+.admin-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: system-ui, sans-serif;
+}
+
+.admin-sidebar {
+  width: 15rem;
+  flex-shrink: 0;
+  background: var(--admin-bg-raised);
+  border-right: 1px solid var(--admin-border);
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-sidebar-brand {
+  font-weight: 700;
+  color: var(--admin-brass);
+  margin-bottom: 2rem;
+}
+
+.admin-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+}
+
+.admin-nav li {
+  margin-bottom: 0.25rem;
+}
+
+.admin-nav-link {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.3rem;
+  color: var(--admin-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.admin-nav-link[data-active="true"] {
+  background: rgba(100, 134, 216, 0.15);
+  color: var(--admin-royal);
+}
+
+.admin-nav-link[data-disabled="true"] {
+  color: var(--admin-text-muted);
+  pointer-events: none;
+}
+
+.admin-nav-soon {
+  font-size: 0.7rem;
+  margin-left: 0.4rem;
+  color: var(--admin-text-muted);
+}
+
+.admin-sidebar-footer {
+  border-top: 1px solid var(--admin-border);
+  padding-top: 1rem;
+  font-size: 0.85rem;
+}
+
+.admin-sidebar-footer form {
+  margin-top: 0.5rem;
+}
+
+.admin-sidebar-footer button {
+  background: none;
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.admin-main {
+  flex: 1;
+  padding: 2.5rem;
+}
+
+/* ---------------------------------------------------
+   Catalogue CRUD — tables, forms, image manager
+--------------------------------------------------- */
+
+.admin-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.admin-page-header h1 { margin: 0; font-size: 1.4rem; }
+.admin-page-header p { margin: 0.35rem 0 0; color: var(--admin-text-muted); font-size: 0.9rem; }
+
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--admin-text);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.admin-btn:hover { border-color: var(--admin-royal); color: var(--admin-royal); }
+
+.admin-btn-primary {
+  background: var(--admin-royal);
+  border-color: var(--admin-royal);
+  color: #fff;
+  font-weight: 600;
+}
+.admin-btn-primary:hover { background: #7a99e0; border-color: #7a99e0; color: #fff; }
+
+.admin-btn-danger:hover { border-color: var(--admin-error); color: var(--admin-error); }
+.admin-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.admin-btn-sm { padding: 0.3rem 0.55rem; font-size: 0.8rem; }
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.admin-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+.admin-table td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--admin-border);
+  vertical-align: middle;
+}
+.admin-table tr:hover td { background: rgba(100, 134, 216, 0.06); }
+.admin-table .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.admin-empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--admin-text-muted);
+  border: 1px dashed var(--admin-border);
+  border-radius: 0.5rem;
+}
+
+.admin-chip {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text-muted);
+  white-space: nowrap;
+}
+.admin-chip[data-status="PUBLISHED"] { border-color: rgba(100,134,216,0.7); color: var(--admin-royal); }
+.admin-chip[data-status="BIDDING_OPEN"],
+.admin-chip[data-status="EXTENDING"] { border-color: rgba(201,169,97,0.7); color: var(--admin-brass); }
+.admin-chip[data-status="CANCELLED"] { border-color: rgba(226,133,122,0.6); color: var(--admin-error); }
+
+.admin-form { max-width: 46rem; }
+.admin-fieldset { border: 0; padding: 0; margin: 0 0 2rem; }
+.admin-fieldset legend {
+  padding: 0;
+  margin-bottom: 0.9rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-royal);
+}
+
+.admin-field { margin-bottom: 1.1rem; }
+.admin-field label { display: block; margin-bottom: 0.35rem; font-size: 0.85rem; }
+.admin-field .hint { display: block; margin-top: 0.3rem; font-size: 0.78rem; color: var(--admin-text-muted); }
+
+.admin-field input,
+.admin-field select,
+.admin-field textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  color: var(--admin-text);
+  font: inherit;
+}
+.admin-field textarea { min-height: 7rem; resize: vertical; }
+.admin-field input:focus-visible,
+.admin-field select:focus-visible,
+.admin-field textarea:focus-visible {
+  outline: 2px solid var(--admin-royal);
+  outline-offset: 1px;
+}
+.admin-field input[aria-invalid="true"],
+.admin-field textarea[aria-invalid="true"] { border-color: var(--admin-error); }
+
+/* Errors never rely on colour alone — the glyph carries it too. */
+.admin-field-error {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--admin-error);
+}
+.admin-field-error::before { content: "⚠ "; }
+
+.admin-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+
+.admin-form-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  padding-top: 0.5rem;
+}
+
+.admin-notice {
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--admin-border);
+  font-size: 0.88rem;
+  margin-bottom: 1.25rem;
+}
+.admin-notice[data-tone="error"] { border-color: var(--admin-error); color: var(--admin-error); }
+.admin-notice[data-tone="ok"] { border-color: rgba(100,134,216,0.7); color: var(--admin-royal); }
+
+.admin-blockers { margin: 0; padding-left: 1.1rem; }
+.admin-blockers li { margin-bottom: 0.3rem; }
+
+.admin-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.admin-image-card {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.4rem;
+  overflow: hidden;
+  background: var(--admin-bg-raised);
+}
+.admin-image-card img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+.admin-image-meta { padding: 0.6rem; font-size: 0.78rem; color: var(--admin-text-muted); }
+.admin-image-actions { display: flex; gap: 0.35rem; padding: 0 0.6rem 0.6rem; }
+
+@media (max-width: 720px) {
+  .admin-grid-2 { grid-template-columns: 1fr; }
+}

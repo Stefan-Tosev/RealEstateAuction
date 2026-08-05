@@ -16,18 +16,42 @@ import { request } from "@playwright/test";
  * ahead of time — playwright.prod.config.ts skips this.
  */
 
+/*
+ * Keep this in step with the routes the suite touches. It fell behind
+ * once already: pass 3 added registration, sign-in, verification and the
+ * document API, none of which were listed, and a cold run went from
+ * 4.6 minutes to 26 with 46 tests timing out on compiles they were
+ * paying for themselves.
+ *
+ * Admin pages cannot be warmed from here — they redirect without a
+ * session — so their first hit still pays, which is what the 90s
+ * per-test timeout is for.
+ */
 const ROUTES = [
+  // Public catalogue
   "/bg/lots",
   "/en/lots",
   "/bg/lots/dvustaen-karshiyaka-plovdiv",
   "/en/lots/dvustaen-karshiyaka-plovdiv",
   "/bg/lots/does-not-exist", // the not-found boundary
+
+  // Accounts
+  "/bg/register",
+  "/en/register",
+  "/bg/sign-in",
+  "/en/sign-in",
+  "/bg/verify",
+  "/en/verify",
+
+  // Route handlers
   "/api/time",
   "/robots.txt",
   "/sitemap.xml",
-  "/admin/login",
-  // Media is served by a route handler, so it compiles too.
+  // Media and documents are both served by route handlers, so both compile.
   "/media/properties/dvustaen-karshiyaka-plovdiv/01.jpg",
+  "/api/documents/00000000-0000-0000-0000-000000000000",
+
+  "/admin/login",
 ];
 
 /*

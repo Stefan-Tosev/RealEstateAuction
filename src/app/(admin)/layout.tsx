@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+// Tokens first: admin.css maps the palette onto its --admin-* names, so
+// the values have to exist by the time it is parsed.
+import "@/styles/tokens.css";
 import "./admin/admin.css";
 
 /*

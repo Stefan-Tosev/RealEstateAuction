@@ -1,4 +1,4 @@
-import { mkdir, copyFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 
@@ -65,7 +65,13 @@ function svgFor(n, seedLabel) {
  * one that eventually ships to production unnoticed.
  */
 const TARGETS = [
-  { slug: "dvustaen-karshiyaka-plovdiv", real: "assets/images/dvustaen-ribbon.jpg", files: ["01.jpg"] },
+  /*
+   * Lot 011 keeps a real photograph, which lives at
+   * media/properties/dvustaen-karshiyaka-plovdiv/01.jpg and is committed.
+   * Nothing to generate — and nothing to copy either, now that the v1
+   * assets/ directory it used to be copied from is gone.
+   */
+  { slug: "dvustaen-karshiyaka-plovdiv", keep: true, files: ["01.jpg"] },
   { slug: "tristaen-lozenets-sofia", gradient: 2, label: "LOT 012", files: ["01.jpg", "02.jpg"] },
   { slug: "kashta-boyana-sofia", gradient: 3, label: "LOT 013", files: ["01.jpg"] },
   { slug: "mezonet-more-varna", gradient: 4, label: "LOT 014", files: ["01.jpg"] },
@@ -79,9 +85,9 @@ async function main() {
     const dir = path.join(OUT_ROOT, target.slug);
     await mkdir(dir, { recursive: true });
 
-    if (target.real) {
-      await copyFile(path.join(process.cwd(), target.real), path.join(dir, target.files[0]));
-      console.log(`copied  ${target.slug}/${target.files[0]}`);
+    if (target.keep) {
+      // Real photography; committed, and not ours to overwrite.
+      console.log(`kept    ${target.slug}/${target.files[0]}`);
       continue;
     }
 

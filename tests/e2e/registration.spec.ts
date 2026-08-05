@@ -293,25 +293,35 @@ test.describe("bot defences", () => {
     expect(await prisma.user.count({ where: { email } })).toBe(0);
   });
 
-  test("submitting instantly is discarded by the time gate", async ({ page }) => {
+  test("cannot be submitted before the form has hydrated", async ({ page }) => {
     /*
-     * Submitted empty and immediately, because the gate is checked
-     * before validation: a too-fast submission takes the silent-discard
-     * path and returns the ordinary success shape, where a slow empty
-     * one would come back covered in field errors. That difference is
-     * the observable evidence the gate fired.
+     * The form posts JSON, so its handler only exists once React has
+     * taken over. A click before that did a native browser submit: the
+     * page reloaded and everything typed was lost, with nothing to
+     * explain why.
      *
-     * An earlier version of this test filled the form first and failed —
-     * six fields with auto-waiting already take more than the two-second
-     * minimum, so nothing was being gated. Worth knowing: a 2s gate stops
-     * only the crudest bots.
+     * Invisible in development, where the page is slow enough that
+     * hydration always wins — it only appeared against a production
+     * build, which is to say on fast connections.
      */
-    await page.goto("/en/register");
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.goto("/en/register", { waitUntil: "commit" });
 
-    await expect(page.getByTestId("registration-sent")).toBeVisible();
-    await expect(page.getByText("This field is required.")).toHaveCount(0);
+    const submit = page.getByRole("button", { name: "Create account" });
+    await expect(submit).toBeDisabled();
+
+    // And becomes usable once hydrated.
+    await expect(submit).toBeEnabled({ timeout: 15_000 });
   });
+
+  /*
+   * The §6 time gate itself is covered deterministically in
+   * tests/unit/registration.test.ts — too fast, forged, expired and
+   * absent tokens all have their own case there.
+   *
+   * It is deliberately not tested through the UI: doing so races
+   * hydration against a two-second wall clock, which is a flaky test
+   * that proves less than the unit ones already do.
+   */
 });
 
 test.describe("session separation", () => {

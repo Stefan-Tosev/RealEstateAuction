@@ -215,3 +215,44 @@ test.describe("the not-found page", () => {
     await expect(page).toHaveURL(/\/bg\/lots$/);
   });
 });
+
+test.describe("mobile navigation", () => {
+  /*
+   * .main-nav is hidden below 860px — a rule ported from v1 whose
+   * hamburger never came with it. Harmless while the only nav item was
+   * "Lots", which the logo also reaches; not once registration and
+   * sign-in exist.
+   */
+  test.use({ viewport: { width: 390, height: 900 } });
+
+  test("replaces the hidden desktop nav", async ({ page }) => {
+    await page.goto("/en/lots");
+
+    await expect(page.locator(".main-nav")).toBeHidden();
+    await expect(page.locator(".mobile-nav > summary")).toBeVisible();
+  });
+
+  test("opens, navigates, and closes behind you", async ({ page }) => {
+    await page.goto("/en/lots");
+
+    await page.locator(".mobile-nav > summary").click();
+    await expect(page.locator(".mobile-nav-panel")).toBeVisible();
+
+    await page.locator(".mobile-nav-panel").getByRole("link", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/en\/sign-in$/);
+
+    // Leaving the panel open over the page just requested is the bug
+    // this guards against.
+    await expect(page.locator(".mobile-nav-panel")).toBeHidden();
+  });
+
+  test("carries the language switch and theme toggle too", async ({ page }) => {
+    // Everything the wide header offers, or the narrow one is a downgrade.
+    await page.goto("/en/lots");
+    await page.locator(".mobile-nav > summary").click();
+
+    const panel = page.locator(".mobile-nav-panel");
+    await expect(panel.getByRole("link", { name: /Switch language|BG/i })).toBeVisible();
+    await expect(panel.getByRole("button", { name: /theme/i })).toBeVisible();
+  });
+});

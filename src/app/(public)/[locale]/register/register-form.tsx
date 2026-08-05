@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Dictionary } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/locales";
@@ -40,6 +40,19 @@ export function RegisterForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+
+  /*
+   * Submission is held until the component has hydrated.
+   *
+   * This form posts JSON to /api/register, so its submit handler only
+   * exists once React has taken over. A click landing before that does a
+   * *native* browser submit: the page reloads, everything typed is lost,
+   * and nothing tells the visitor why. It is invisible in development,
+   * where the page is slow enough that hydration always wins, and shows
+   * up on a fast connection — which is to say, on the good ones.
+   */
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
 
   const codeToMessage = (code: string): string =>
     (t.errors as Record<string, string>)[code] ?? t.errors.UNKNOWN;
@@ -302,7 +315,11 @@ export function RegisterForm({
         <input name="website" type="text" tabIndex={-1} autoComplete="off" />
       </div>
 
-      <button className="btn btn-brass btn-lg btn-full" type="submit" disabled={submitting}>
+      <button
+        className="btn btn-brass btn-lg btn-full"
+        type="submit"
+        disabled={submitting || !hydrated}
+      >
         {submitting ? t.register.submitting : t.register.submit}
       </button>
 

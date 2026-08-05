@@ -54,6 +54,9 @@ const ROUTES = [
   "/media/properties/dvustaen-karshiyaka-plovdiv/01.jpg",
   "/api/documents/00000000-0000-0000-0000-000000000000",
   "/api/lots/00000000-0000-0000-0000-000000000000/pulse",
+  // The scheduler endpoints are POST-only; a GET still compiles the route.
+  "/api/internal/close-lots",
+  "/api/internal/send-outbox",
 
   "/admin/login",
 ];

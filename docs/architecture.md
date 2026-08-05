@@ -128,6 +128,10 @@ Thirty rounds then costs ~64 minutes instead of 150, and the anti-snipe guarante
 
 Do not floor below 2 minutes for property. A bidder needs time to see the alert, think, and confirm a five-figure commitment. One minute favours whoever happens to be staring at the screen, which is the exact unfairness soft close exists to remove.
 
+The table is the length of the **quiet period the clock resets to**, not merely the width of the trigger window. Both, in fact: a bid extends only if it lands within that many seconds of the close, and it then resets the close to that many seconds away.
+
+This was implemented as trigger-window-only at first, with the reset left at a flat `soft_close_reset_seconds`. That decays *which* bids extend but never *by how much*, so thirty rounds still cost 150 minutes and the arithmetic above never materialised. `soft_close_reset_seconds` now acts as a cap on the schedule rather than as the reset itself.
+
 Store as `soft_close_schedule` (jsonb) on `lots` so it is tunable per lot, with `extension_count` tracked on the row.
 
 ### Placing a bid
@@ -155,8 +159,9 @@ highest  := SELECT max(amount_minor) FROM bids
             WHERE lot_id = :lot_id AND status = 'accepted';
 min_next := COALESCE(highest + increment_for(highest), lot.starting_price_minor);
 IF :amount < min_next                  -> reject TOO_LOW
--- NB: min_next is a FLOOR, not a step. Any amount above it is valid;
--- jump bids are expected and are what keep endgames short.
+IF :amount > min_next                  -> reject NOT_ON_STEP
+-- NB: min_next is a STEP, not a floor. It is the ONLY valid amount;
+-- an amount above it is rejected NOT_ON_STEP. See "Bid increments".
 
 -- Idempotency: a retry or double-click returns the original bid
 IF EXISTS (bid WITH idempotency_key)   -> RETURN existing
@@ -196,19 +201,28 @@ Must be idempotent and safe with several workers running.
 
 ### Bid increments
 
-Banded on the **current** price, calibrated for the Bulgarian market where most stock sits at or under €100k — so the resolution needs to be finest exactly there:
+**Revised 2026-08-05: the increment is a fixed step, not a floor.**
 
-| Current bid | Minimum step | ≈ % |
-|---|---|---|
-| under €20,000 | €250 | 1.7% |
-| €20,000 – €50,000 | €500 | 1.7% |
-| €50,000 – €100,000 | €1,000 | 1.4% |
-| €100,000 – €250,000 | €2,500 | 1.7% |
-| above €250,000 | €5,000 | 1.5% |
+The original design made `min_next` a floor and allowed any amount above it, on the reasoning that jump bids keep endgames short. That requires a free-text amount field, and a free-text amount field means a bidder can type an extra zero into something legally binding — €3,450,000 where €345,000 was meant, comfortably above the floor and therefore accepted by every check. There is no undo on a binding bid.
 
-Every band lands near **1.5–2% of the standing bid**, which is the conventional range. Coarser steps at the €50–100k level would be simpler but would deter bidders — a €2,500 jump on a €70,000 flat is a big ask, and thin bidding hurts more than a long endgame does.
+So exactly one amount is valid at any moment, and the interface offers a single button carrying it. `NOT_ON_STEP` exists to record the case where a request arrives with something else, which cannot come from the interface.
 
-Stored as a table, not constants, so bands are tunable without a deploy.
+The cost is real and was accepted knowingly: no jump bids means a contested lot climbs one rung at a time, and each rung resets the clock. Steeper bands are the compensation — step size is now the only control on how fast price moves.
+
+| Current bid | Step | % at band start | % at band end |
+|---|---|---|---|
+| under €100,000 | €2,000 | — | 2.0% |
+| €100,000 – €250,000 | €5,000 | 5.0% | 2.0% |
+| €250,000 – €500,000 | €10,000 | 4.0% | 2.0% |
+| above €500,000 | €25,000 | 5.0% | — |
+
+Each band opens at 4–5% of the standing bid and decays to 2% before the next takes over. That is above the conventional 1.5–2%, deliberately: at the old €5,000 step a €345,000 → €600,000 contest is 51 bids and 51 clock resets, against 20 here.
+
+The risk this carries is a rung that overshoots the top bidder's limit, ending a lot below what it would have made. That is a revenue question for the auctioneer, and the reason the bands live in a table.
+
+A lot may override the band with `lots.bid_increment_minor`. The override wins — and it must win **everywhere**. The lot page and the engine resolve the increment through the same function for exactly this reason: a page advertising a step the engine would refuse is worse than no figure at all.
+
+Stored as a table, not constants, so bands are tunable without a deploy. Replaced wholesale on seed rather than merged: the bands partition the price line, so an obsolete lower bound does not sit quietly beside the new ones — it wins for its slice of the range.
 
 ### Invariants — these are the tests that matter
 

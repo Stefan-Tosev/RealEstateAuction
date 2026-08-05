@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { parseMoneyInput } from "@/lib/money";
 import { placeBid } from "@/server/auction/place-bid";
 import { requireBidder } from "@/server/identity/authz";
 import { hit, LIMITS } from "@/server/identity/rate-limit";
@@ -14,9 +13,9 @@ import { hit, LIMITS } from "@/server/identity/rate-limit";
  * transaction under a row lock. This wrapper only turns a form into that
  * call and a result into a code the page can render in either language.
  *
- * The amount goes through parseMoneyInput, which is the only thing on
- * the site allowed to read a typed amount — see the note there on why
- * stripping commas is a hundredfold error in Bulgarian.
+ * Exactly one amount is valid at any moment, so the form sends the one
+ * it displayed rather than anything a person typed. Free entry is what
+ * made an extra zero possible, and a bid binds.
  */
 
 export type BidState =
@@ -50,8 +49,17 @@ export async function placeBidAction(
     return { ok: false, code: "errorTooFast" };
   }
 
-  const amountMinor = parseMoneyInput(String(formData.get("amount") ?? ""));
-  if (amountMinor === null) return { ok: false, code: "errorAmount" };
+  /*
+   * Minor units, straight from the button that was pressed — there is no
+   * field to type in, so there is no locale, no separator and nothing to
+   * misread. It is still client-supplied, and placeBid checks it against
+   * the step under the lot lock; the point of sending it is that the
+   * bidder is committed to the amount they saw, never to whatever the
+   * price has since become.
+   */
+  const raw = String(formData.get("amount") ?? "");
+  if (!/^\d{1,18}$/.test(raw)) return { ok: false, code: "errorGeneric" };
+  const amountMinor = BigInt(raw);
 
   /*
    * The identity of this submission: which form, at which state of the
@@ -91,6 +99,8 @@ export async function placeBidAction(
   switch (result.reason) {
     case "TOO_LOW":
       return { ok: false, code: "errorTooLow" };
+    case "NOT_ON_STEP":
+      return { ok: false, code: "errorNotOnStep" };
     case "CLOSED":
       return { ok: false, code: "errorClosed" };
     case "NOT_APPROVED":

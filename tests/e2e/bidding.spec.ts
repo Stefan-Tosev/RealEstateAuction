@@ -141,7 +141,7 @@ test.describe("what the panel offers each viewer", () => {
     await page.goto(`/en/lots/${SLUG}`);
 
     await expect(page.getByRole("link", { name: "Sign in to bid" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Place bid" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Bid / })).toHaveCount(0);
   });
 
   test("tells an unapproved bidder what is missing, not just 'no'", async ({ page }) => {
@@ -149,7 +149,7 @@ test.describe("what the panel offers each viewer", () => {
     await page.goto(`/en/lots/${SLUG}`);
 
     await expect(page.getByText(/awaiting approval/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Place bid" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Bid / })).toHaveCount(0);
   });
 
   test("offers nothing to bid on during the preview", async ({ page }) => {
@@ -161,36 +161,55 @@ test.describe("what the panel offers each viewer", () => {
     await page.goto(`/en/lots/${PREVIEW_SLUG}`);
 
     await expect(page.getByText("Bidding is not open for this lot.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Place bid" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Bid / })).toHaveCount(0);
   });
 });
 
 test.describe("placing a bid", () => {
-  test("refuses one below the minimum, and records the refusal", async ({ page }) => {
+  test("offers one button carrying the exact next bid, and no field", async ({ page }) => {
+    /*
+     * There is nothing to type. Exactly one amount is valid, so a text
+     * box could only ever add ways to get it wrong — and the way it went
+     * wrong was an extra zero on something legally binding.
+     */
     await signIn(page, APPROVED_EMAIL);
     await page.goto(`/en/lots/${SLUG}`);
 
-    await page.getByLabel("Your bid (EUR)").fill("1");
-    await page.getByRole("button", { name: "Place bid" }).click();
+    await expect(page.getByRole("textbox")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Bid €345,000" })).toBeVisible();
+    await expect(page.getByText("Bidding moves in fixed steps of €10,000.")).toBeVisible();
+  });
 
-    await expect(page.getByText("That bid is below the minimum.")).toBeVisible();
+  test("refuses an amount that is not the step, and records the refusal", async ({ page }) => {
+    /*
+     * Only a crafted request can reach this, which is exactly why it is
+     * worth recording. §3: rejected bids are stored too, because an audit
+     * needs to see what was attempted rather than only what succeeded.
+     */
+    await signIn(page, APPROVED_EMAIL);
+    await page.goto(`/en/lots/${SLUG}`);
 
-    // §3 invariant: rejected bids are stored too. An audit needs to see
-    // what was attempted, not only what succeeded.
+    await page.locator('input[name="amount"]').evaluate((el) => {
+      (el as HTMLInputElement).value = "150000000";
+    });
+    await page.getByRole("button", { name: /^Bid / }).click();
+
+    await expect(page.getByText("Bids must be exactly the next step.")).toBeVisible();
+
     const rejected = await prisma.bid.findFirst({
       where: { lotId, userId: approvedId, status: "rejected" },
     });
     expect(rejected).not.toBeNull();
-    expect(rejected!.rejectReason).toBe("TOO_LOW");
+    expect(rejected!.rejectReason).toBe("NOT_ON_STEP");
+    expect(rejected!.amountMinor).toBe(150_000_000n);
   });
 
-  test("accepts a bid at the minimum and counts it", async ({ page }) => {
+  test("accepts the step and counts it", async ({ page }) => {
     await signIn(page, APPROVED_EMAIL);
     await page.goto(`/en/lots/${SLUG}`);
 
-    // The form pre-fills the minimum; bidding exactly it proves the
-    // floor is inclusive.
-    await page.getByRole("button", { name: "Place bid" }).click();
+    // The first bid is AT the guide price, not a step above it.
+    await page.getByRole("button", { name: "Bid €345,000" }).click();
 
     await expect(page.getByText("Your bid was accepted.")).toBeVisible();
     await expect(page.getByText("1 bid", { exact: false })).toBeVisible();
@@ -228,13 +247,13 @@ test.describe("placing a bid", () => {
      * the second returns the first bid rather than placing another. This
      * is the failure that costs a bidder real money.
      */
-    const button = page.getByRole("button", { name: "Place bid" });
+    const button = page.getByRole("button", { name: /^Bid / });
     await button.click({ noWaitAfter: true });
     await button.click({ noWaitAfter: true, force: true }).catch(() => {
       // Fine — React may already have disabled it, which is the same
       // protection by a different route.
     });
-    await expect(page.getByText(/accepted|below the minimum/i)).toBeVisible();
+    await expect(page.getByText(/accepted|bid that amount first/i)).toBeVisible();
 
     const after = await prisma.bid.count({ where: { lotId, status: "accepted" } });
     expect(after).toBe(before + 1);
@@ -251,47 +270,32 @@ test.describe("placing a bid", () => {
 
     const before = await prisma.bid.count({ where: { lotId, status: "accepted" } });
 
-    await page.getByRole("button", { name: "Place bid" }).click();
+    await page.getByRole("button", { name: /^Bid / }).click();
     await expect(page.getByText(/Your bid was accepted/)).toBeVisible();
 
     const after = await prisma.bid.count({ where: { lotId, status: "accepted" } });
     expect(after).toBe(before + 1);
   });
 
-  test("reads an amount typed the Bulgarian way as the amount meant", async ({ page }) => {
-    /*
-     * The site prints €345,000.50 as "345 000,50 €". Stripping the comma
-     * as a group separator — which every parser here used to do — turns
-     * that back into €34,500,050, a hundredfold bid that clears every
-     * downstream check because it is above the minimum. And a bid binds.
-     */
+  test("climbs exactly one step per bid, in both locales", async ({ page }) => {
     await signIn(page, APPROVED_EMAIL);
     await page.goto(`/bg/lots/${SLUG}`);
 
-    const field = page.getByLabel("Вашата оферта (EUR)");
-    const minimumMajor = await field.inputValue();
-    const grouped = minimumMajor.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    const before = await prisma.bid.aggregate({
+      where: { lotId, status: "accepted" },
+      _max: { amountMinor: true },
+    });
 
-    await field.fill(`${grouped},50`);
-    await page.getByRole("button", { name: "Наддай" }).click();
+    await page.getByRole("button", { name: /^Наддай / }).click();
     await expect(page.getByText("Офертата ви е приета.")).toBeVisible();
 
-    const highest = await prisma.bid.findFirstOrThrow({
+    const after = await prisma.bid.aggregate({
       where: { lotId, status: "accepted" },
-      orderBy: { amountMinor: "desc" },
-      select: { amountMinor: true },
+      _max: { amountMinor: true },
     });
-    expect(highest.amountMinor).toBe(BigInt(minimumMajor) * 100n + 50n);
-  });
 
-  test("refuses an amount it cannot read rather than guessing", async ({ page }) => {
-    await signIn(page, APPROVED_EMAIL);
-    await page.goto(`/en/lots/${SLUG}`);
-
-    await page.getByLabel("Your bid (EUR)").fill("three hundred thousand");
-    await page.getByRole("button", { name: "Place bid" }).click();
-
-    await expect(page.getByText(/Enter an amount like/)).toBeVisible();
+    // €345,000 sits in the €10,000 band.
+    expect(after._max.amountMinor! - before._max.amountMinor!).toBe(1_000_000n);
   });
 
   test("never puts the reserve in the page", async ({ page }) => {

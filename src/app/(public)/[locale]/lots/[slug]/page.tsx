@@ -158,14 +158,21 @@ export default async function LotDetailPage({ params }: Params) {
                 that does nothing is worse than no CTA — it reads as a
                 broken site rather than an honest one.
               */}
+              {/*
+                The increment is deliberately NOT shown from
+                lot.incrementFormatted any more. That column is a per-lot
+                override the engine may or may not use, and the bands are
+                the other half of the answer — a page rendering one while
+                placeBid enforces the other tells the bidder a price that
+                will be refused. BidPanel shows the resolved figure,
+                which is the same value the engine will accept.
+              */}
               <p className="bid-increment-note">
                 {phase.kind === "preview"
                   ? t.detail.biddingOpensNote.replace("{date}", phase.opensAtFormatted)
                   : phase.kind === "closed"
                     ? t.detail.biddingClosedNote
-                    : lot.incrementFormatted
-                      ? t.detail.increment.replace("{amount}", lot.incrementFormatted)
-                      : t.detail.biddingClosedNote}
+                    : t.detail.biddingOpenNote}
               </p>
 
               <dl className="key-dates">

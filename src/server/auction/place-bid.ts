@@ -31,6 +31,7 @@ export type BidRejection =
   | "NOT_APPROVED"
   | "NO_DEPOSIT"
   | "TOO_LOW"
+  | "NOT_ON_STEP"
   | "NOT_FOUND";
 
 export type BidOutcome =
@@ -73,6 +74,7 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
         status: string;
         effective_close_at: Date | null;
         starting_price_minor: bigint;
+        bid_increment_minor: bigint | null;
         deposit_required_minor: bigint | null;
         soft_close_window_seconds: number;
         soft_close_reset_seconds: number;
@@ -84,6 +86,7 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
       SELECT status::text,
              effective_close_at,
              starting_price_minor,
+             bid_increment_minor,
              deposit_required_minor,
              soft_close_window_seconds,
              soft_close_reset_seconds,
@@ -184,8 +187,25 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
     });
     const highestMinor = highest._max.amountMinor ?? null;
 
-    const minimum = await minimumNextBid(tx, highestMinor, lot.starting_price_minor);
+    /*
+     * Exactly one amount is valid. §3 originally made this a floor with
+     * jump bids allowed; it is a fixed step now, because a free-text
+     * amount lets a bidder type an extra zero and a bid binds.
+     *
+     * The two failure directions are kept apart on purpose. Below the
+     * step means somebody took that rung first — the ordinary race in a
+     * busy endgame, and the bidder just needs the new price. Above it
+     * cannot come from the interface at all, which makes it worth
+     * recording as its own thing.
+     */
+    const minimum = await minimumNextBid(
+      tx,
+      highestMinor,
+      lot.starting_price_minor,
+      lot.bid_increment_minor,
+    );
     if (request.amountMinor < minimum) return reject("TOO_LOW", minimum);
+    if (request.amountMinor > minimum) return reject("NOT_ON_STEP", minimum);
 
     // ---- Soft close ----
 
@@ -202,9 +222,21 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
      * extends from the already-extended time, because it reads
      * effective_close_at after the first transaction committed.
      */
-    const extendedTo = insideWindow
-      ? new Date(now.getTime() + lot.soft_close_reset_seconds * 1000)
-      : null;
+    /*
+     * Reset to the *decayed* window, not to the lot's flat reset value.
+     *
+     * §3's table is headed "Window", but its own arithmetic — "thirty
+     * rounds costs ~64 minutes instead of 150" — only works if the reset
+     * decays too: 2x5 + 2x3 + 26x2 is 68 minutes, while a flat 5-minute
+     * reset is 150 however narrow the trigger window gets. Decaying only
+     * the trigger changes which bids extend, never by how much, so the
+     * endgame never actually shortened.
+     *
+     * soft_close_reset_seconds stays as the floor for a lot with no
+     * schedule of its own.
+     */
+    const resetSeconds = Math.min(windowSeconds, lot.soft_close_reset_seconds);
+    const extendedTo = insideWindow ? new Date(now.getTime() + resetSeconds * 1000) : null;
 
     const previous = await tx.bid.findFirst({
       where: { lotId: request.lotId, status: "accepted" },

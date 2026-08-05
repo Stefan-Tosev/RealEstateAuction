@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { minimumNextBid } from "./increments";
+import { incrementFor, minimumNextBid } from "./increments";
 
 /*
  * What the lot page needs to render the bid panel.
@@ -19,8 +19,10 @@ export type BiddingView = {
   status: string;
   /** Highest accepted bid, or null before the first one. */
   currentMinor: string | null;
-  /** The lowest amount that would be accepted next — a FLOOR, not a step. */
+  /** The one amount that will be accepted next. Not a floor — a step. */
   minimumMinor: string;
+  /** The step itself, resolved through the per-lot override and the bands. */
+  incrementMinor: string;
   bidCount: number;
   eligibility: BidEligibility;
   /**
@@ -42,6 +44,7 @@ export async function getBiddingView(
     select: {
       status: true,
       startingPriceMinor: true,
+      bidIncrementMinor: true,
       depositRequiredMinor: true,
     },
   });
@@ -61,7 +64,28 @@ export async function getBiddingView(
   ]);
 
   const currentMinor = highest._max.amountMinor ?? null;
-  const minimum = await minimumNextBid(prisma, currentMinor, lot.startingPriceMinor);
+  /*
+   * Resolved the same way placeBid resolves it, through the same
+   * functions. The page must never advertise a step the engine would
+   * refuse.
+   */
+  /*
+   * Resolved at the price the lot is actually at, which before the first
+   * bid is the guide price rather than zero. Falling back to zero picks
+   * the bottom band and tells a bidder on a €345,000 lot that bidding
+   * moves in €2,000 steps, when the first raise will be €10,000.
+   */
+  const increment = await incrementFor(
+    prisma,
+    currentMinor ?? lot.startingPriceMinor,
+    lot.bidIncrementMinor,
+  );
+  const minimum = await minimumNextBid(
+    prisma,
+    currentMinor,
+    lot.startingPriceMinor,
+    lot.bidIncrementMinor,
+  );
 
   /*
    * Stable per-lot numbering, in the order bidders first appear. Bidder
@@ -79,6 +103,7 @@ export async function getBiddingView(
     status: lot.status,
     currentMinor: currentMinor?.toString() ?? null,
     minimumMinor: minimum.toString(),
+    incrementMinor: increment.toString(),
     bidCount,
     eligibility: await eligibilityFor(lotId, lot.status, lot.depositRequiredMinor, viewerId),
     recentBids: accepted.map((bid) => ({

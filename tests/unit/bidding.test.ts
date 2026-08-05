@@ -53,6 +53,7 @@ async function makeLot(options: {
   extensionCount?: number;
   resetSeconds?: number;
   windowSeconds?: number;
+  incrementMinor?: bigint;
 }): Promise<string> {
   const closeAt = new Date(Date.now() + options.closesInSeconds * 1000);
 
@@ -62,6 +63,7 @@ async function makeLot(options: {
       lotNumber: Math.floor(Math.random() * 900_000) + 1000,
       status: "BIDDING_OPEN",
       startingPriceMinor: options.startingPriceMinor ?? 10_000_000n,
+      bidIncrementMinor: options.incrementMinor ?? null,
       reservePriceMinor: options.reservePriceMinor ?? 11_000_000n,
       depositRequiredMinor: options.depositRequiredMinor ?? null,
       biddingOpensAt: new Date(Date.now() - 86_400_000),
@@ -141,33 +143,39 @@ describe("increment bands (§3)", () => {
   it("matches the documented table", () => {
     const eur = (n: number) => BigInt(n) * 100n;
 
-    expect(incrementForFromBands(DEFAULT_BANDS, eur(19_999))).toBe(eur(250));
-    expect(incrementForFromBands(DEFAULT_BANDS, eur(20_000))).toBe(eur(500));
-    expect(incrementForFromBands(DEFAULT_BANDS, eur(49_999))).toBe(eur(500));
-    expect(incrementForFromBands(DEFAULT_BANDS, eur(50_000))).toBe(eur(1_000));
-    expect(incrementForFromBands(DEFAULT_BANDS, eur(99_999))).toBe(eur(1_000));
-    expect(incrementForFromBands(DEFAULT_BANDS, eur(100_000))).toBe(eur(2_500));
-    expect(incrementForFromBands(DEFAULT_BANDS, eur(250_000))).toBe(eur(5_000));
-    expect(incrementForFromBands(DEFAULT_BANDS, eur(9_000_000))).toBe(eur(5_000));
+    expect(incrementForFromBands(DEFAULT_BANDS, eur(99_999))).toBe(eur(2_000));
+    expect(incrementForFromBands(DEFAULT_BANDS, eur(100_000))).toBe(eur(5_000));
+    expect(incrementForFromBands(DEFAULT_BANDS, eur(249_999))).toBe(eur(5_000));
+    expect(incrementForFromBands(DEFAULT_BANDS, eur(250_000))).toBe(eur(10_000));
+    expect(incrementForFromBands(DEFAULT_BANDS, eur(345_000))).toBe(eur(10_000));
+    expect(incrementForFromBands(DEFAULT_BANDS, eur(499_999))).toBe(eur(10_000));
+    expect(incrementForFromBands(DEFAULT_BANDS, eur(500_000))).toBe(eur(25_000));
+    expect(incrementForFromBands(DEFAULT_BANDS, eur(9_000_000))).toBe(eur(25_000));
   });
 
-  it("keeps every band near 1.5–2% of the standing bid", () => {
+  it("opens each band at 4-5% and decays to 2% before the next", () => {
     /*
-     * The calibration §3 argues for: a step much coarser deters bidders,
-     * much finer drags the endgame out.
+     * The calibration the revised §3 argues for. Steeper than the
+     * conventional 1.5-2%, because a fixed step with no jump bids makes
+     * step size the only control on how fast price moves.
      *
-     * Measured at each band's LOWER bound, which is its worst case — the
+     * Measured at the band's LOWER bound, which is its worst case — the
      * step is proportionally largest there and shrinks across the band.
-     * At €20,000 a €500 step is 2.5%; by €30,000 it is the ~1.7% the
-     * spec's table quotes. So the ceiling here is the boundary figure,
-     * not the typical one.
      */
     for (const band of DEFAULT_BANDS) {
       if (band.fromMinor === 0n) continue;
       const pct = (Number(band.incrementMinor) / Number(band.fromMinor)) * 100;
-      expect(pct, `band from ${band.fromMinor}`).toBeGreaterThan(1.0);
-      expect(pct, `band from ${band.fromMinor}`).toBeLessThanOrEqual(2.5);
+      expect(pct, `band from ${band.fromMinor}`).toBeGreaterThanOrEqual(4.0);
+      expect(pct, `band from ${band.fromMinor}`).toBeLessThanOrEqual(5.0);
     }
+  });
+
+  it("hands the band's slice to whichever bound is highest below the price", () => {
+    // A stale band left in the table wins for its slice of the range,
+    // which is why the seed replaces the table rather than merging into
+    // it. Pinned here so the lookup rule itself cannot drift.
+    const withStale = [...DEFAULT_BANDS, { fromMinor: 2_000_000n, incrementMinor: 50_000n }];
+    expect(incrementForFromBands(withStale, 3_000_000n)).toBe(50_000n);
   });
 });
 
@@ -195,37 +203,83 @@ describe("the first bid", () => {
   });
 });
 
-describe("minimum next bid is a FLOOR, not a step (§3)", () => {
-  it("accepts a jump bid far above the minimum", async () => {
+describe("the increment is a STEP, not a floor (§3, revised)", () => {
+  it("refuses an amount above the step", async () => {
     /*
-     * "Any amount above it is valid; jump bids are expected and are what
-     * keep endgames short." Rounding to the increment would be a
-     * different auction.
+     * The reason the rule changed. A free-text amount let a bidder type
+     * an extra zero into something binding — €1,500,000 where €102,000
+     * was meant, comfortably above the old floor and therefore accepted.
+     * Nothing in the interface can produce this now, which is exactly
+     * why a request carrying it is worth recording.
      */
     await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
 
     const jump = await placeBid({
       lotId,
       userId: bidders[1],
-      amountMinor: 15_000_000n,
+      amountMinor: 150_000_000n,
       idempotencyKey: key(),
     });
 
-    expect(jump).toMatchObject({ ok: true, amountMinor: 15_000_000n });
+    expect(jump).toMatchObject({ ok: false, reason: "NOT_ON_STEP", minimumMinor: 10_500_000n });
+    // Recorded, like every other rejection.
+    expect(await prisma.bid.count({ where: { lotId, status: "rejected" } })).toBe(1);
   });
 
-  it("refuses one cent below the floor and accepts the floor exactly", async () => {
+  it("accepts exactly the step and refuses either side of it by a cent", async () => {
     await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
 
-    // €100,000 sits in the €2,500 band.
-    const floor = 10_250_000n;
+    // €100,000 sits in the €5,000 band.
+    const step = 10_500_000n;
 
     await expect(
-      placeBid({ lotId, userId: bidders[1], amountMinor: floor - 1n, idempotencyKey: key() }),
-    ).resolves.toMatchObject({ ok: false, reason: "TOO_LOW", minimumMinor: floor });
+      placeBid({ lotId, userId: bidders[1], amountMinor: step - 1n, idempotencyKey: key() }),
+    ).resolves.toMatchObject({ ok: false, reason: "TOO_LOW", minimumMinor: step });
 
     await expect(
-      placeBid({ lotId, userId: bidders[1], amountMinor: floor, idempotencyKey: key() }),
+      placeBid({ lotId, userId: bidders[1], amountMinor: step + 1n, idempotencyKey: key() }),
+    ).resolves.toMatchObject({ ok: false, reason: "NOT_ON_STEP", minimumMinor: step });
+
+    await expect(
+      placeBid({ lotId, userId: bidders[1], amountMinor: step, idempotencyKey: key() }),
+    ).resolves.toMatchObject({ ok: true });
+  });
+
+  it("lets a lot override the band, and the override wins", async () => {
+    /*
+     * The page and the engine must resolve this identically — a lot page
+     * advertising a step the engine would refuse is worse than showing
+     * no figure at all.
+     */
+    const overridden = await makeLot({ closesInSeconds: 3600, incrementMinor: 33_300n });
+
+    await placeBid({
+      lotId: overridden,
+      userId: bidders[0],
+      amountMinor: 10_000_000n,
+      idempotencyKey: key(),
+    });
+
+    const view = await getBiddingView(overridden, bidders[0]);
+    expect(view.incrementMinor).toBe("33300");
+    expect(view.minimumMinor).toBe("10033300");
+
+    await expect(
+      placeBid({
+        lotId: overridden,
+        userId: bidders[1],
+        amountMinor: 10_500_000n,
+        idempotencyKey: key(),
+      }),
+    ).resolves.toMatchObject({ ok: false, reason: "NOT_ON_STEP" });
+
+    await expect(
+      placeBid({
+        lotId: overridden,
+        userId: bidders[1],
+        amountMinor: 10_033_300n,
+        idempotencyKey: key(),
+      }),
     ).resolves.toMatchObject({ ok: true });
   });
 });
@@ -361,7 +415,8 @@ describe("soft close (§3)", () => {
     const second = await placeBid({
       lotId: closing,
       userId: bidders[1],
-      amountMinor: 10_250_000n,
+      // Exactly one step above the first. Anything else is refused now.
+      amountMinor: 10_500_000n,
       idempotencyKey: key(),
     });
 
@@ -389,6 +444,55 @@ describe("soft close (§3)", () => {
     expect(windowFor(null, 3, 300)).toBe(180);
     expect(windowFor(null, 4, 300)).toBe(120);
     expect(windowFor(null, 30, 300)).toBe(120);
+  });
+
+  it("resets the clock to the DECAYED window, not to a flat five minutes", async () => {
+    /*
+     * The bug §3's own arithmetic exposes. Its table is headed "Window",
+     * and the implementation duly decayed the trigger window while
+     * leaving the reset at a flat soft_close_reset_seconds — which
+     * changes *which* bids extend but never *by how much*, so thirty
+     * rounds still cost 150 minutes and the promised ~64 never arrived.
+     *
+     * Six extensions already banked puts this lot on the 120s step.
+     */
+    const late = await makeLot({
+      closesInSeconds: 30,
+      resetSeconds: 300,
+      extensionCount: 6,
+    });
+
+    const result = await placeBid({
+      lotId: late,
+      userId: bidders[0],
+      amountMinor: 10_000_000n,
+      idempotencyKey: key(),
+    });
+
+    if (!result.ok || !result.extendedTo) throw new Error("the bid should have extended");
+
+    const secondsOut = (result.extendedTo.getTime() - Date.now()) / 1000;
+    expect(secondsOut).toBeGreaterThan(110);
+    expect(secondsOut).toBeLessThan(130);
+  });
+
+  it("keeps a lot's own shorter reset when it has one", async () => {
+    // soft_close_reset_seconds caps the schedule rather than replacing
+    // it, so an auctioneer who set a deliberately short reset gets it.
+    const brisk = await makeLot({ closesInSeconds: 30, resetSeconds: 60 });
+
+    const result = await placeBid({
+      lotId: brisk,
+      userId: bidders[0],
+      amountMinor: 10_000_000n,
+      idempotencyKey: key(),
+    });
+
+    if (!result.ok || !result.extendedTo) throw new Error("the bid should have extended");
+
+    const secondsOut = (result.extendedTo.getTime() - Date.now()) / 1000;
+    expect(secondsOut).toBeGreaterThan(50);
+    expect(secondsOut).toBeLessThan(70);
   });
 
   it("never floors below two minutes", () => {
@@ -631,8 +735,8 @@ describe("what the lot page is told (bidding-view)", () => {
      * is bidding against whom.
      */
     await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
-    await placeBid({ lotId, userId: bidders[1], amountMinor: 10_250_000n, idempotencyKey: key() });
-    await placeBid({ lotId, userId: bidders[0], amountMinor: 10_500_000n, idempotencyKey: key() });
+    await placeBid({ lotId, userId: bidders[1], amountMinor: 10_500_000n, idempotencyKey: key() });
+    await placeBid({ lotId, userId: bidders[0], amountMinor: 11_000_000n, idempotencyKey: key() });
 
     const view = await getBiddingView(lotId, bidders[0]);
 
@@ -642,6 +746,32 @@ describe("what the lot page is told (bidding-view)", () => {
 
     const serialised = JSON.stringify(view);
     for (const id of bidders) expect(serialised).not.toContain(id);
+  });
+
+  it("reports the step at the lot's price, not at zero", async () => {
+    /*
+     * Before the first bid there is no standing price to band on, and
+     * falling back to zero picks the bottom band — telling a bidder on a
+     * €345,000 lot that bidding moves in €2,000 steps when the first
+     * raise will be €10,000. The guide price is the right fallback.
+     */
+    const pricey = await makeLot({ closesInSeconds: 3600, startingPriceMinor: 34_500_000n });
+
+    const before = await getBiddingView(pricey, bidders[0]);
+    expect(before.currentMinor).toBeNull();
+    expect(before.minimumMinor).toBe("34500000"); // the guide itself
+    expect(before.incrementMinor).toBe("1000000"); // €10,000, not €2,000
+
+    await placeBid({
+      lotId: pricey,
+      userId: bidders[0],
+      amountMinor: 34_500_000n,
+      idempotencyKey: key(),
+    });
+
+    const after = await getBiddingView(pricey, bidders[0]);
+    expect(after.incrementMinor).toBe("1000000");
+    expect(after.minimumMinor).toBe("35500000");
   });
 
   it("says why someone cannot bid, not merely that they cannot", async () => {

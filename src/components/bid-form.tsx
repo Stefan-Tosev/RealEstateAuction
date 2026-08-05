@@ -5,29 +5,38 @@ import type { Locale } from "@/lib/i18n/locales";
 import { placeBidAction, type BidState } from "@/app/(public)/[locale]/lots/[slug]/bid-actions";
 
 /*
- * The bid form.
+ * The bid form: one button, one amount.
  *
- * The idempotency key is minted once, when the form renders, and travels
- * with the submission. A double-click or a retry therefore reuses it and
- * placeBid returns the original bid rather than placing a second — which
- * matters more here than anywhere else in the application.
+ * There is no field to type in. Exactly one amount is valid — the
+ * current price plus the increment — so offering a text box only creates
+ * ways to get it wrong, and the way it goes wrong is a bidder typing an
+ * extra zero into something legally binding.
+ *
+ * The amount still travels with the submission rather than being derived
+ * server-side. If someone else bids between this page rendering and this
+ * button being pressed, the server sees an amount that is no longer the
+ * step and refuses it. Deriving it server-side would instead commit the
+ * bidder to a higher number than the button they pressed said — which is
+ * precisely the harm the button exists to prevent.
  *
  * Copy is passed in rather than looked up: the dictionaries are
- * server-only, and the action returns a code precisely so the message
- * can be rendered in the page's language.
+ * server-only, and the action returns a code precisely so the message can
+ * be rendered in the page's language.
  */
 export function BidForm({
   locale,
   slug,
   lotId,
-  minimumMajor,
+  amountMinor,
+  amountFormatted,
   attempt,
   labels,
 }: {
   locale: Locale;
   slug: string;
   lotId: string;
-  minimumMajor: string;
+  amountMinor: string;
+  amountFormatted: string;
   /**
    * Changes whenever the state of the lot changes — see the note below on
    * why the key cannot be `useId()` alone.
@@ -42,18 +51,14 @@ export function BidForm({
    * The idempotency key has to be stable for one attempt and different
    * for the next, and getting that wrong fails in opposite directions:
    * too volatile and a double-click places two bids, too stable and a
-   * bidder's second, higher bid silently replays their first.
+   * bidder's second bid silently replays their first.
    *
    * useId() alone is the second failure. It is derived from the
    * component's position in the tree, so it survives both re-renders and
-   * a remount in the same slot — after a successful bid revalidates the
-   * page, the form would still be carrying the key that already has a
-   * bid against it.
-   *
-   * So: useId() to separate this form from any other on the page, plus
-   * `attempt`, which the panel derives from the lot's current state.
-   * The action appends the amount, which is the part this component
-   * cannot see — see bid-actions.ts for why it has to be in there.
+   * a remount in the same slot. Combined with `attempt`, which the panel
+   * derives from the lot's current state, and the amount, which the
+   * action appends: two clicks on one rendered form are one bid, and a
+   * bid at a new price is a new one.
    */
   const formId = useId();
   const idempotencyKey = `${formId}:${attempt}`;
@@ -71,25 +76,12 @@ export function BidForm({
       ) : null}
 
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
+      <input type="hidden" name="amount" value={amountMinor} />
 
-      <label className="field-label" htmlFor="bid-amount">
-        {labels.yourBid}
-      </label>
-      <div className="bid-row">
-        <input
-          className="field-input"
-          id="bid-amount"
-          name="amount"
-          type="text"
-          inputMode="decimal"
-          defaultValue={minimumMajor}
-          autoComplete="off"
-        />
-        <button className="btn btn-brass" type="submit" disabled={pending}>
-          {pending ? labels.placing : labels.place}
-        </button>
-      </div>
-      <span className="field-hint">{labels.minimumHint}</span>
+      <button className="btn btn-brass bid-button" type="submit" disabled={pending}>
+        {pending ? labels.placing : labels.place.replace("{amount}", amountFormatted)}
+      </button>
+      <span className="field-hint">{labels.stepHint.replace("{amount}", amountFormatted)}</span>
     </form>
   );
 }

@@ -665,13 +665,14 @@
   margin-bottom: 12px;
 }
 
-.bid-row {
-  display: flex;
-  gap: 10px;
-  align-items: stretch;
+/* One button, one amount — there is no field to type in. */
+.bid-button {
+  display: block;
+  width: 100%;
+  font-size: 1.05rem;
+  padding: 14px 18px;
+  margin-bottom: 8px;
 }
-.bid-row .field-input { flex: 1 1 auto; }
-.bid-row .btn { flex: 0 0 auto; }
 
 .bid-message {
   padding: 12px 14px;
@@ -730,7 +731,6 @@
 }
 
 @media (max-width: 640px) {
-  .bid-row { flex-direction: column; }
   .bid-history li { flex-wrap: wrap; gap: 4px 12px; }
   .bid-history-when { flex: 1 0 100%; text-align: left; }
 }

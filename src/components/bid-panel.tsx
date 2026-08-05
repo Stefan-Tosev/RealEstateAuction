@@ -37,14 +37,6 @@ export function BidPanel({
     ? formatMoney(view.currentMinor, locale)
     : formatMoney(view.minimumMinor, locale);
 
-  /** Minor units to the major-unit string the form pre-fills. */
-  const minimumMajor = (() => {
-    const minor = BigInt(view.minimumMinor);
-    const whole = minor / 100n;
-    const cents = minor % 100n;
-    return cents === 0n ? whole.toString() : `${whole}.${cents.toString().padStart(2, "0")}`;
-  })();
-
   return (
     <section className="bidding" id="bidding">
       <h2 className="section-title">{t.bidding.heading}</h2>
@@ -64,13 +56,14 @@ export function BidPanel({
       {view.eligibility.canBid ? (
         <>
           <p className="bid-minimum">
-            {t.bidding.minimumNext.replace("{amount}", formatMoney(view.minimumMinor, locale))}
+            {t.bidding.nextBid.replace("{amount}", formatMoney(view.minimumMinor, locale))}
           </p>
           <BidForm
             locale={locale}
             slug={slug}
             lotId={lotId}
-            minimumMajor={minimumMajor}
+            amountMinor={view.minimumMinor}
+            amountFormatted={formatMoney(view.minimumMinor, locale)}
             /*
              * Identifies this attempt. Both parts move the moment a bid
              * lands — the count always, the price whenever the bid was
@@ -78,9 +71,15 @@ export function BidPanel({
              * while a genuine follow-up bid is not.
              */
             attempt={`${view.bidCount}:${view.currentMinor ?? "0"}`}
-            // bidCount is plural forms rather than a string, and the
-            // form has no use for it.
-            labels={(({ bidCount, ...rest }) => rest)(t.bidding)}
+            labels={{
+              // bidCount is plural forms rather than a string, and the
+              // form has no use for it.
+              ...(({ bidCount, ...rest }) => rest)(t.bidding),
+              stepHint: t.bidding.stepHint.replace(
+                "{step}",
+                formatMoney(view.incrementMinor, locale),
+              ),
+            }}
           />
         </>
       ) : (

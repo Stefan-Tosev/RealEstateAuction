@@ -2,24 +2,36 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /*
- * Minimum bid increments (§3).
+ * Bid increments (§3).
  *
  * Banded on the *current* price, read from bid_increment_bands so an
  * auctioneer can retune them without a deploy.
  *
- * The result is a FLOOR, not a step. §3 is explicit: "min_next is a
- * FLOOR, not a step. Any amount above it is valid; jump bids are
- * expected and are what keep endgames short." Rounding a bid to the
- * nearest increment would be a different auction.
+ * The result is a STEP, not a floor. §3 originally specified a floor
+ * with jump bids allowed, and that was changed deliberately: free entry
+ * of an amount means a bidder can type an extra zero, and a bid binds.
+ * The trade is fewer ways to end a contest quickly, which is why the
+ * bands below are steeper than a floor-based table would need to be —
+ * step size is now the only control on how fast price moves.
+ *
+ * A lot may override the band with its own bid_increment_minor. The
+ * override wins wherever it is set, and it must win *everywhere* — the
+ * price shown on the lot page and the price the engine will accept are
+ * the same number or the page is lying to the bidder.
  */
 
-/** The bands from §3, in minor units. Seeded, and editable afterwards. */
+/**
+ * The bands, in minor units.
+ *
+ * Each starts at about 4–5% of the price and decays to 2% by the time
+ * the next band takes over. Steeper than a floor-based table, on purpose
+ * — see above.
+ */
 export const DEFAULT_BANDS: { fromMinor: bigint; incrementMinor: bigint }[] = [
-  { fromMinor: 0n, incrementMinor: 25_000n }, // under €20,000 → €250
-  { fromMinor: 2_000_000n, incrementMinor: 50_000n }, // €20k–50k → €500
-  { fromMinor: 5_000_000n, incrementMinor: 100_000n }, // €50k–100k → €1,000
-  { fromMinor: 10_000_000n, incrementMinor: 250_000n }, // €100k–250k → €2,500
-  { fromMinor: 25_000_000n, incrementMinor: 500_000n }, // above €250k → €5,000
+  { fromMinor: 0n, incrementMinor: 200_000n }, // under €100,000 → €2,000
+  { fromMinor: 10_000_000n, incrementMinor: 500_000n }, // €100k–250k → €5,000
+  { fromMinor: 25_000_000n, incrementMinor: 1_000_000n }, // €250k–500k → €10,000
+  { fromMinor: 50_000_000n, incrementMinor: 2_500_000n }, // above €500k → €25,000
 ];
 
 type Client = Prisma.TransactionClient;
@@ -30,8 +42,17 @@ type Client = Prisma.TransactionClient;
  * Takes a client so it can run inside the bid transaction — the whole
  * decision has to happen under the lot lock, and reaching for a second
  * connection there deadlocks the pool under load.
+ *
+ * `lotIncrementMinor` is the per-lot override. It wins when set, because
+ * an auctioneer setting an increment on a particular lot means it.
  */
-export async function incrementFor(client: Client, currentMinor: bigint): Promise<bigint> {
+export async function incrementFor(
+  client: Client,
+  currentMinor: bigint,
+  lotIncrementMinor?: bigint | null,
+): Promise<bigint> {
+  if (lotIncrementMinor && lotIncrementMinor > 0n) return lotIncrementMinor;
+
   const band = await client.bidIncrementBand.findFirst({
     where: { fromMinor: { lte: currentMinor } },
     orderBy: { fromMinor: "desc" },
@@ -48,18 +69,20 @@ export async function incrementFor(client: Client, currentMinor: bigint): Promis
 }
 
 /**
- * The lowest amount that would be accepted next.
+ * The one amount that would be accepted next.
  *
- * With no accepted bids the floor is the starting price itself — the
- * first bid is *at* the guide, not a step above it.
+ * With no accepted bids that is the starting price itself — the first
+ * bid is *at* the guide, not a step above it. After that it is exactly
+ * one increment above the highest bid, and nothing else is valid.
  */
 export async function minimumNextBid(
   client: Client,
   highestMinor: bigint | null,
   startingPriceMinor: bigint,
+  lotIncrementMinor?: bigint | null,
 ): Promise<bigint> {
   if (highestMinor === null) return startingPriceMinor;
-  return highestMinor + (await incrementFor(client, highestMinor));
+  return highestMinor + (await incrementFor(client, highestMinor, lotIncrementMinor));
 }
 
 /** Pure version of the band lookup, for tests and for the UI's hint. */

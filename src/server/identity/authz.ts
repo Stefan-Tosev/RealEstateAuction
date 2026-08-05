@@ -91,6 +91,14 @@ export const ADMIN_ONLY_ACTIONS = [
   "lot.publish",
   "lot.cancel",
   "lot.editLive",
+  /*
+   * Approving a bidder decides who may commit to a five-figure purchase,
+   * and recording a deposit is the first point the system asserts money
+   * arrived. Neither is data entry, so neither belongs to every account
+   * with a login.
+   */
+  "bidder.decide",
+  "deposit.record",
 ] as const;
 
 export type AdminOnlyAction = (typeof ADMIN_ONLY_ACTIONS)[number];

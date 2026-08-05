@@ -349,3 +349,18 @@
 @media (max-width: 720px) {
   .admin-grid-2 { grid-template-columns: 1fr; }
 }
+
+/* Compact inline input, for the note beside an approve/reject decision. */
+.admin-input-inline {
+  padding: 0.3rem 0.5rem;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.25rem;
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 0.8rem;
+}
+.admin-input-inline:focus-visible {
+  outline: 2px solid var(--admin-royal);
+  outline-offset: 1px;
+}

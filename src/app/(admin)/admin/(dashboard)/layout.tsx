@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", enabled: true },
   { label: "Lots", href: "/admin/lots", enabled: true },
   { label: "Properties", href: "/admin/properties", enabled: true },
-  { label: "Bidders", href: "/admin/bidders", enabled: false },
+  { label: "Bidders", href: "/admin/bidders", enabled: true },
   { label: "Documents", href: "/admin/documents", enabled: false },
   { label: "Viewings", href: "/admin/viewings", enabled: false },
   { label: "Deposits", href: "/admin/deposits", enabled: false },

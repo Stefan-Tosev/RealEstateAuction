@@ -54,6 +54,7 @@ async function makeLot(options: {
   resetSeconds?: number;
   windowSeconds?: number;
   incrementMinor?: bigint;
+  schedule?: { afterExtensions: number; windowSeconds: number }[];
 }): Promise<string> {
   const closeAt = new Date(Date.now() + options.closesInSeconds * 1000);
 
@@ -72,6 +73,7 @@ async function makeLot(options: {
       softCloseWindowSeconds: options.windowSeconds ?? 300,
       softCloseResetSeconds: options.resetSeconds ?? 300,
       extensionCount: options.extensionCount ?? 0,
+      softCloseSchedule: options.schedule ?? undefined,
     },
     select: { id: true },
   });
@@ -433,37 +435,65 @@ describe("soft close (§3)", () => {
     expect(lot.effectiveCloseAt!.getTime()).toBeGreaterThanOrEqual(first.extendedTo!.getTime());
   });
 
-  it("shrinks the window as extensions accumulate", () => {
+  it("does not shrink the window as extensions accumulate", () => {
     /*
-     * Two determined bidders grinding the minimum can otherwise drag a
-     * close out for hours — 30 rounds at a flat 5 minutes is 2.5 hours.
+     * The default is flat five minutes. §3 originally decayed to three
+     * and then two, and that was reversed: the decay existed to stop
+     * cheap grinding at a 1.4% increment, and the bands now open at
+     * 4-5%, so thirty rounds means the price moved €300,000. The
+     * two-minute floor was also conditional on outbid notifications,
+     * which are §4 and unbuilt.
      */
     expect(windowFor(null, 0, 300)).toBe(300);
-    expect(windowFor(null, 1, 300)).toBe(300);
-    expect(windowFor(null, 2, 300)).toBe(180);
-    expect(windowFor(null, 3, 300)).toBe(180);
-    expect(windowFor(null, 4, 300)).toBe(120);
-    expect(windowFor(null, 30, 300)).toBe(120);
+    expect(windowFor(null, 2, 300)).toBe(300);
+    expect(windowFor(null, 4, 300)).toBe(300);
+    expect(windowFor(null, 30, 300)).toBe(300);
   });
 
-  it("resets the clock to the DECAYED window, not to a flat five minutes", async () => {
+  it("resets the clock to a full five minutes however many bids came before", async () => {
     /*
-     * The bug §3's own arithmetic exposes. Its table is headed "Window",
-     * and the implementation duly decayed the trigger window while
-     * leaving the reset at a flat soft_close_reset_seconds — which
-     * changes *which* bids extend but never *by how much*, so thirty
-     * rounds still cost 150 minutes and the promised ~64 never arrived.
-     *
-     * Six extensions already banked puts this lot on the 120s step.
+     * The promise a bidder can hold in their head: there will always be
+     * five quiet minutes before the gavel. Six extensions already banked
+     * changes nothing.
      */
-    const late = await makeLot({
-      closesInSeconds: 30,
-      resetSeconds: 300,
-      extensionCount: 6,
-    });
+    const late = await makeLot({ closesInSeconds: 30, resetSeconds: 300, extensionCount: 6 });
 
     const result = await placeBid({
       lotId: late,
+      userId: bidders[0],
+      amountMinor: 10_000_000n,
+      idempotencyKey: key(),
+    });
+
+    if (!result.ok || !result.extendedTo) throw new Error("the bid should have extended");
+
+    const secondsOut = (result.extendedTo.getTime() - Date.now()) / 1000;
+    expect(secondsOut).toBeGreaterThan(290);
+    expect(secondsOut).toBeLessThan(310);
+  });
+
+  it("still resets to the decayed window when a lot carries a schedule", async () => {
+    /*
+     * The mechanism survives the change of default. An endgame that
+     * genuinely drags can be given a decay per lot, with no deploy — and
+     * the reset must follow it, not sit at a flat five minutes.
+     *
+     * That was the original defect: §3's table is headed "Window", so
+     * the trigger window decayed while the reset did not, which changes
+     * *which* bids extend but never *by how much*.
+     */
+    const decaying = await makeLot({
+      closesInSeconds: 30,
+      resetSeconds: 300,
+      extensionCount: 6,
+      schedule: [
+        { afterExtensions: 0, windowSeconds: 300 },
+        { afterExtensions: 4, windowSeconds: 120 },
+      ],
+    });
+
+    const result = await placeBid({
+      lotId: decaying,
       userId: bidders[0],
       amountMinor: 10_000_000n,
       idempotencyKey: key(),
@@ -495,11 +525,18 @@ describe("soft close (§3)", () => {
     expect(secondsOut).toBeLessThan(70);
   });
 
-  it("never floors below two minutes", () => {
-    // "Do not floor below 2 minutes for property. A bidder needs time to
-    // see the alert, think, and confirm a five-figure commitment."
+  it("never drops below two minutes, whatever the schedule says", () => {
+    /*
+     * "Do not floor below 2 minutes for property. A bidder needs time to
+     * see the alert, think, and confirm a five-figure commitment."
+     *
+     * The default is five and does not move, but the per-lot column
+     * accepts anything, so the rule is asserted against the default
+     * rather than left to a comment.
+     */
     const floor = Math.min(...DEFAULT_SCHEDULE.map((s) => s.windowSeconds));
-    expect(floor).toBe(120);
+    expect(floor).toBeGreaterThanOrEqual(120);
+    expect(floor).toBe(300);
   });
 
   it("honours a per-lot schedule when one is set", async () => {

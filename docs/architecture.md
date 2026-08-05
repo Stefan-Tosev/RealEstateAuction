@@ -112,27 +112,27 @@ Reset the clock; do not add to it. Adding lets ten rapid bids pile on fifty minu
 
 **The extension only fires inside the trigger window.** A bid placed on day 2 of a 5-day bidding period moves nothing. Only a bid arriving within `soft_close_window_seconds` of `effective_close_at` resets the clock. Normal price discovery happens across the whole window at no time cost.
 
-### Decaying extension window
+### Extension window
 
-Two determined bidders grinding the minimum increment inside the endgame can drag a close out for hours — 30 rounds at a flat 5 minutes is 2.5 hours. Real, if uncommon.
+**Revised 2026-08-05: flat five minutes. The decay is available per lot but is no longer the default.**
 
-Shrink the window as extensions accumulate:
+The original design shrank the window as extensions accumulated — 5 minutes for the first two, then 3, then a 2-minute floor — on the grounds that two determined bidders grinding the minimum increment can drag a close out for hours. Thirty rounds at a flat five minutes is 2.5 hours.
 
-| Extension # | Window |
-|---|---|
-| 1–2 | 5 minutes |
-| 3–4 | 3 minutes |
-| 5+ | **2 minutes** (floor) |
+Three things overtook that reasoning:
 
-Thirty rounds then costs ~64 minutes instead of 150, and the anti-snipe guarantee survives — two minutes is ample to react *provided outbid notifications are working*, which is why §4 treats them as mandatory rather than optional.
+1. **The increments moved.** The grind argument assumed a €5,000 step at €345,000, about 1.4%. At the revised bands it is €10,000, and every band opens at 4–5%. Thirty rounds now means the price moved €300,000. That is not a pathology to defend against.
+2. **The 2-minute floor was conditional on §4.** It was permitted only "provided outbid notifications are working". Until those ship, a two-minute window means keeping your lot depends on happening to be at the screen — the exact unfairness soft close exists to remove.
+3. **Reflection time is the product.** Five minutes is already thin for committing to a six-figure purchase. Two invites the emotional bid, which is the kind of sale that comes back as a dispute.
 
-Do not floor below 2 minutes for property. A bidder needs time to see the alert, think, and confirm a five-figure commitment. One minute favours whoever happens to be staring at the screen, which is the exact unfairness soft close exists to remove.
+A hard cap on total extension was considered instead and rejected: it bounds the operational risk but reintroduces sniping at the cap, breaking the anti-snipe guarantee exactly where it matters most. A long endgame is an operations problem — solve it by alerting the auctioneer, not by rushing bidders.
 
-The table is the length of the **quiet period the clock resets to**, not merely the width of the trigger window. Both, in fact: a bid extends only if it lands within that many seconds of the close, and it then resets the close to that many seconds away.
+The guarantee is therefore the simple one, and it is the one to state publicly: **there will always be five quiet minutes before the gavel.**
 
-This was implemented as trigger-window-only at first, with the reset left at a flat `soft_close_reset_seconds`. That decays *which* bids extend but never *by how much*, so thirty rounds still cost 150 minutes and the arithmetic above never materialised. `soft_close_reset_seconds` now acts as a cap on the schedule rather than as the reset itself.
+`soft_close_schedule` (jsonb, per lot) still accepts a decaying schedule, and `windowFor` still honours it, so a lot whose endgame genuinely drags can be given one without a deploy. `extension_count` is tracked on the row for it.
 
-Store as `soft_close_schedule` (jsonb) on `lots` so it is tunable per lot, with `extension_count` tracked on the row.
+The schedule value is the length of the **quiet period the clock resets to**, not merely the width of the trigger window. Both, in fact: a bid extends only if it lands within that many seconds of the close, and it then resets the close to that many seconds away.
+
+This was implemented as trigger-window-only at first, with the reset left at a flat `soft_close_reset_seconds`. That decays *which* bids extend but never *by how much*, so a decaying schedule never actually shortened anything. `soft_close_reset_seconds` now acts as a cap on the schedule rather than as the reset itself.
 
 ### Placing a bid
 

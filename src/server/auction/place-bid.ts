@@ -281,20 +281,30 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
 }
 
 /**
- * The extension window for the next reset, shrinking as extensions
- * accumulate (§3).
+ * The quiet period a bid resets the clock to — both the width of the
+ * trigger window and the length of the reset.
  *
- * | Extension # | Window |
- * | 1–2         | 5 min  |
- * | 3–4         | 3 min  |
- * | 5+          | 2 min  |
+ * Flat five minutes by default. §3 originally specified a decay to three
+ * and then two minutes, and the mechanism is still here, but the default
+ * no longer uses it:
  *
- * Two determined bidders grinding the minimum can otherwise drag a close
- * out for hours. The floor is deliberately two minutes and must not go
- * lower for property: a bidder needs time to see the alert, think, and
- * confirm a five-figure commitment. One minute favours whoever happens
- * to be staring at the screen, which is the exact unfairness soft close
- * exists to remove.
+ *   - The decay existed to stop two bidders grinding the *minimum*
+ *     increment for hours. That was written when the step at €345,000
+ *     was €5,000; at the current bands it is €10,000, so thirty rounds
+ *     means the price moved €300,000. That is not a pathology to defend
+ *     against.
+ *   - §3 permits the two-minute floor only "provided outbid
+ *     notifications are working". They are §4, and unbuilt. Without
+ *     them a two-minute window means keeping your lot depends on
+ *     happening to be at the screen, which is the exact unfairness soft
+ *     close exists to remove.
+ *   - Five minutes is already thin for committing to a six-figure
+ *     purchase. Two is a pressure tactic, and it makes the guarantee
+ *     harder to state: "there will always be five quiet minutes before
+ *     the gavel" is something a bidder can hold in their head.
+ *
+ * A lot may still carry its own schedule in soft_close_schedule, so an
+ * endgame that genuinely drags can be given a decay without a deploy.
  */
 export function windowFor(
   schedule: unknown,
@@ -312,9 +322,11 @@ export function windowFor(
   return chosen;
 }
 
-/** Used when a lot carries no per-lot schedule. Tunable per lot via soft_close_schedule. */
-export const DEFAULT_SCHEDULE = [
-  { afterExtensions: 0, windowSeconds: 300 },
-  { afterExtensions: 2, windowSeconds: 180 },
-  { afterExtensions: 4, windowSeconds: 120 },
-];
+/**
+ * Used when a lot carries no per-lot schedule.
+ *
+ * One entry, so the window never changes. The shape stays an array
+ * because windowFor still honours a decaying schedule set on a lot — see
+ * the note above on why the default is not one.
+ */
+export const DEFAULT_SCHEDULE = [{ afterExtensions: 0, windowSeconds: 300 }];

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseMoneyInput } from "@/lib/money";
 
 /*
  * Input validation for the admin forms. First use of zod in the app.
@@ -68,49 +69,47 @@ const optionalInt = (label: string, min: number, max: number) =>
  * rather than in the component keeps the conversion in one place and
  * out of the UI.
  *
- * Accepts "100000", "100 000", "100,000", "100000.50".
+ * Reading the typed amount is parseMoneyInput's job — it is the only
+ * thing on the site that does it, because getting the separators wrong
+ * is a hundredfold error rather than a rounding one.
  */
 export const majorToMinor = (label: string) =>
   z
     .string()
-    .transform((v) => v.replace(/[\s, ]/g, "").trim())
+    /*
+     * Validation stays in superRefine and conversion in transform.
+     * Raising the issue from inside the transform instead lets a bad
+     * field through as undefined, and the cross-field reserve rule below
+     * then compares undefined against a bigint and throws.
+     */
     .superRefine((v, ctx) => {
-      if (v.length === 0) {
+      if (v.trim().length === 0) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${label} is required.` });
         return;
       }
-      if (!/^\d+(\.\d{1,2})?$/.test(v)) {
+      if (parseMoneyInput(v) === null) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `${label} must be an amount like 100000 or 100000.50.`,
         });
       }
     })
-    .transform((v) => {
-      const [whole, fraction = ""] = v.split(".");
-      // String arithmetic, not Number(v) * 100 — 19.99 * 100 is
-      // 1998.9999999999998, and this is money.
-      return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0").slice(0, 2));
-    });
+    // Reached only once the refinement passed, so the parse cannot be null.
+    .transform((v) => parseMoneyInput(v)!);
 
 const optionalMajorToMinor = (label: string) =>
   z
     .string()
-    .transform((v) => v.replace(/[\s, ]/g, "").trim())
     .superRefine((v, ctx) => {
-      if (v.length === 0) return;
-      if (!/^\d+(\.\d{1,2})?$/.test(v)) {
+      if (v.trim().length === 0) return;
+      if (parseMoneyInput(v) === null) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `${label} must be an amount like 2000 or 2000.50.`,
         });
       }
     })
-    .transform((v) => {
-      if (v.length === 0) return null;
-      const [whole, fraction = ""] = v.split(".");
-      return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0").slice(0, 2));
-    });
+    .transform((v) => (v.trim().length === 0 ? null : parseMoneyInput(v)!));
 
 export const propertySchema = z.object({
   slug: slugSchema,

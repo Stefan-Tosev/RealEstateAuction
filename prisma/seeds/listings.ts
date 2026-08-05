@@ -47,7 +47,13 @@ export type SeedListing = {
   floor: number | null;
   yearBuilt: number | null;
   startingPriceMinor: bigint;
-  bidIncrementMinor: bigint;
+  /**
+   * Per-lot override for the increment. Null on every seeded lot on
+   * purpose: the bands in src/server/auction/increments.ts are the normal
+   * path, and a demo catalogue that overrides them everywhere would never
+   * exercise them. The admin form still offers it for the odd lot.
+   */
+  bidIncrementMinor: bigint | null;
   /*
    * Hours from seed time to the close. Negative means already closed.
    *
@@ -82,7 +88,7 @@ export const LISTINGS: SeedListing[] = [
     floor: 4,
     yearBuilt: 1986,
     startingPriceMinor: 10_000_000n,
-    bidIncrementMinor: 200_000n,
+    bidIncrementMinor: null,
     // Inside the 48h urgency threshold — exercises [data-urgent].
     closesInHours: 30,
     gradient: 1,
@@ -115,7 +121,7 @@ export const LISTINGS: SeedListing[] = [
     floor: 5,
     yearBuilt: 2004,
     startingPriceMinor: 34_500_000n,
-    bidIncrementMinor: 500_000n,
+    bidIncrementMinor: null,
     closesInHours: 96,
     gradient: 2,
     images: [
@@ -154,7 +160,7 @@ export const LISTINGS: SeedListing[] = [
     floor: null,
     yearBuilt: 2011,
     startingPriceMinor: 89_000_000n,
-    bidIncrementMinor: 1_000_000n,
+    bidIncrementMinor: null,
     /*
      * Exercises the EXTENDING badge. Two hours, not minutes: there is no
      * soft-close engine until Phase 3, so nothing advances the status
@@ -193,7 +199,7 @@ export const LISTINGS: SeedListing[] = [
     floor: 7,
     yearBuilt: 2021,
     startingPriceMinor: 52_000_000n,
-    bidIncrementMinor: 1_000_000n,
+    bidIncrementMinor: null,
     // Bidding opens in 9 days (close minus the 5-day bidding window).
     closesInHours: 24 * 14,
     gradient: 4,
@@ -226,7 +232,7 @@ export const LISTINGS: SeedListing[] = [
     floor: null,
     yearBuilt: 1874,
     startingPriceMinor: 41_000_000n,
-    bidIncrementMinor: 500_000n,
+    bidIncrementMinor: null,
     closesInHours: 24 * 23,
     gradient: 5,
     images: [
@@ -265,7 +271,7 @@ export const LISTINGS: SeedListing[] = [
     floor: 0,
     yearBuilt: 1968,
     startingPriceMinor: 68_000_000n,
-    bidIncrementMinor: 1_000_000n,
+    bidIncrementMinor: null,
     // Closed five days ago: resolves by URL, absent from the index.
     closesInHours: -120,
     gradient: 6,
@@ -298,7 +304,7 @@ export const LISTINGS: SeedListing[] = [
     floor: null,
     yearBuilt: null,
     startingPriceMinor: 14_000_000n,
-    bidIncrementMinor: 250_000n,
+    bidIncrementMinor: null,
     closesInHours: 24 * 30,
     gradient: 7,
     images: [

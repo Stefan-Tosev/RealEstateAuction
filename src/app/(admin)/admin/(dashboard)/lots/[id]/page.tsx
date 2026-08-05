@@ -7,6 +7,9 @@ import { LotControls } from "../lot-controls";
 import { LotForm, type LotFormValues } from "../lot-form";
 import { listLotDocuments } from "@/server/documents/admin";
 import { listSlotsForLot } from "@/server/viewings/bookings";
+import { bidderOptionsForLot, listDepositsForLot } from "@/server/auction/deposits";
+import { formatMoney } from "@/lib/money";
+import { DepositManager } from "./deposit-manager";
 import { DocumentManager } from "./document-manager";
 import { SlotManager } from "./slot-manager";
 
@@ -51,6 +54,10 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
   const properties = await listPropertyOptions();
   const documents = await listLotDocuments(lot.id);
   const slots = await listSlotsForLot(lot.id);
+  const deposits = await listDepositsForLot(lot.id);
+  // Only approved bidders without a deposit on this lot — the ones an
+  // operator could actually be recording money for.
+  const bidderOptions = await bidderOptionsForLot(lot.id);
 
   const sofia = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Sofia",
@@ -128,6 +135,28 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
           sizeBytes: Number(document.size),
           uploadedBy: document.uploader.name,
           uploadedAt: sofia.format(document.uploadedAt),
+        }))}
+      />
+
+      <hr style={{ border: 0, borderTop: "1px solid var(--admin-border)", margin: "2rem 0" }} />
+
+      <DepositManager
+        lotId={lot.id}
+        canRecord={canPerform(actor.role, "deposit.record")}
+        depositRequired={
+          lot.depositRequiredMinor ? formatMoney(lot.depositRequiredMinor, "en") : null
+        }
+        bidderOptions={bidderOptions}
+        deposits={deposits.map((deposit) => ({
+          id: deposit.id,
+          bidderName: deposit.bidderName,
+          bidderEmail: deposit.bidderEmail,
+          // bigint does not cross into a client component.
+          amountFormatted: formatMoney(deposit.amountMinor, "en"),
+          method: deposit.method,
+          status: deposit.status,
+          providerRef: deposit.providerRef,
+          createdAt: sofia.format(deposit.createdAt),
         }))}
       />
 

@@ -420,6 +420,28 @@ model Lot {
 
 // ---------- Bidding ----------
 
+/*
+ * Minimum bid increments, banded on the CURRENT price (§3).
+ *
+ * A table rather than constants, exactly as the spec asks: "Stored as a
+ * table, not constants, so bands are tunable without a deploy." An
+ * auctioneer adjusting increments should not need a release.
+ *
+ * Calibrated for the Bulgarian market, where most stock sits at or under
+ * €100k — so the resolution is finest there. Every band lands near
+ * 1.5–2% of the standing bid.
+ */
+model BidIncrementBand {
+  id Int @id @default(autoincrement())
+
+  /** Inclusive lower bound of the current price. The band with the greatest fromMinor <= price wins. */
+  fromMinor      BigInt @map("from_minor")
+  incrementMinor BigInt @map("increment_minor")
+
+  @@unique([fromMinor])
+  @@map("bid_increment_bands")
+}
+
 // APPEND ONLY. Never UPDATE, never DELETE — enforced at the database
 // level by a trigger (see migration `..._bids_append_only`), not by
 // convention (§3).

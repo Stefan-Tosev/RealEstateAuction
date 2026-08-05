@@ -11,6 +11,9 @@ import { getPublicLotBySlug, listSimilarLots } from "@/server/catalogue/lots";
 import { getLotPack, resolveViewer } from "@/server/documents/lot-documents";
 import { LegalPack } from "@/components/legal-pack";
 import { ViewingsSection } from "@/components/viewings-section";
+import { BidPanel } from "@/components/bid-panel";
+import { LiveLot } from "@/components/live-lot";
+import { getBiddingView } from "@/server/auction/bidding-view";
 import { listPublicSlots } from "@/server/viewings/bookings";
 import { formatDateTime } from "@/lib/datetime";
 
@@ -65,6 +68,7 @@ export default async function LotDetailPage({ params }: Params) {
   // other absolute date on the site.
   const bidderId = viewer.kind === "bidder" ? viewer.userId : null;
   const slots = await listPublicSlots(lot.id, bidderId, (date) => formatDateTime(date, locale));
+  const bidding = await getBiddingView(lot.id, bidderId);
   const { phase } = lot;
 
   return (
@@ -104,6 +108,24 @@ export default async function LotDetailPage({ params }: Params) {
               <h2 className="section-title">{t.detail.description}</h2>
               <p>{lot.description}</p>
             </section>
+
+            <BidPanel view={bidding} locale={locale} slug={slug} lotId={lot.id} />
+
+            {/*
+              Renders nothing. Watches the lot for a bid landing and
+              refetches this page's server components when one does, so
+              price, count, countdown and the bid button all move
+              together rather than drifting apart.
+            */}
+            <LiveLot
+              lotId={lot.id}
+              initial={{
+                status: bidding.status,
+                bidCount: bidding.bidCount,
+                currentMinor: bidding.currentMinor,
+                closeAtIso: bidding.closeAtIso,
+              }}
+            />
 
             <LegalPack documents={pack} locale={locale} />
 
@@ -153,14 +175,21 @@ export default async function LotDetailPage({ params }: Params) {
                 that does nothing is worse than no CTA — it reads as a
                 broken site rather than an honest one.
               */}
+              {/*
+                The increment is deliberately NOT shown from
+                lot.incrementFormatted any more. That column is a per-lot
+                override the engine may or may not use, and the bands are
+                the other half of the answer — a page rendering one while
+                placeBid enforces the other tells the bidder a price that
+                will be refused. BidPanel shows the resolved figure,
+                which is the same value the engine will accept.
+              */}
               <p className="bid-increment-note">
                 {phase.kind === "preview"
                   ? t.detail.biddingOpensNote.replace("{date}", phase.opensAtFormatted)
                   : phase.kind === "closed"
                     ? t.detail.biddingClosedNote
-                    : lot.incrementFormatted
-                      ? t.detail.increment.replace("{amount}", lot.incrementFormatted)
-                      : t.detail.biddingClosedNote}
+                    : t.detail.biddingOpenNote}
               </p>
 
               <dl className="key-dates">

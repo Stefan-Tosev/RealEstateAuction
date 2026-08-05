@@ -629,3 +629,108 @@
   .slot-action { align-items: flex-start; }
   .slot-error { text-align: left; max-width: none; }
 }
+
+/* ---------------------------------------------------
+   Bidding
+--------------------------------------------------- */
+.bid-summary {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-top: 2px solid var(--color-brass);
+  border-radius: var(--radius);
+  margin-bottom: 18px;
+}
+
+.bid-current {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  color: var(--color-brass-bright);
+}
+
+.bid-count {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--color-ivory-dim);
+}
+
+.bid-minimum {
+  font-size: 0.9rem;
+  color: var(--color-ivory-dim);
+  margin-bottom: 12px;
+}
+
+/* One button, one amount — there is no field to type in. */
+.bid-button {
+  display: block;
+  width: 100%;
+  font-size: 1.05rem;
+  padding: 14px 18px;
+  margin-bottom: 8px;
+}
+
+.bid-message {
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+}
+.bid-message[data-tone="ok"] {
+  border-color: rgba(100, 134, 216, 0.6);
+  color: var(--color-royal-bright);
+}
+.bid-message[data-tone="error"] {
+  border-color: var(--color-error-border);
+  color: var(--color-error);
+}
+.bid-message[data-tone="error"]::before { content: "⚠ "; }
+
+.bid-blocked {
+  color: var(--color-ivory-dim);
+  font-size: 0.95rem;
+}
+
+.bid-history { margin-top: 28px; }
+
+.bid-history-heading {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-royal-bright);
+  margin-bottom: 10px;
+}
+
+.bid-history li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.86rem;
+}
+
+/* Identities are never public — labels only. */
+.bid-history-who { flex: 0 0 auto; color: var(--color-ivory); }
+.bid-history-amount {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  color: var(--color-brass-bright);
+}
+.bid-history-when {
+  flex: 1 1 auto;
+  text-align: right;
+  color: var(--color-ivory-dim);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 640px) {
+  .bid-history li { flex-wrap: wrap; gap: 4px 12px; }
+  .bid-history-when { flex: 1 0 100%; text-align: left; }
+}

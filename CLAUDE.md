@@ -19,6 +19,7 @@ npm run db:seed        # demo catalogue; idempotent, refreshes relative dates
 npm test               # unit (vitest)
 npm run test:e2e       # e2e against next dev
 npm run test:e2e:prod  # builds first, then runs against next start
+npm run worker         # closing worker; nothing closes lots without it
 npm run clean          # clear .next
 ```
 

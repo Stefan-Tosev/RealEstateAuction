@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { parseMoneyInput } from "@/lib/money";
 import { placeBid } from "@/server/auction/place-bid";
 import { requireBidder } from "@/server/identity/authz";
+import { hit, LIMITS } from "@/server/identity/rate-limit";
 
 /*
  * Placing a bid from the browser.
@@ -12,8 +14,9 @@ import { requireBidder } from "@/server/identity/authz";
  * transaction under a row lock. This wrapper only turns a form into that
  * call and a result into a code the page can render in either language.
  *
- * The amount is parsed here from euros to minor units as strings — the
- * same rule as everywhere else, never Number(v) * 100.
+ * The amount goes through parseMoneyInput, which is the only thing on
+ * the site allowed to read a typed amount — see the note there on why
+ * stripping commas is a hundredfold error in Bulgarian.
  */
 
 export type BidState =
@@ -35,12 +38,20 @@ export async function placeBidAction(
     return { ok: false, code: "signInToBid" };
   }
 
-  const raw = String(formData.get("amount") ?? "").replace(/[\s,]/g, "");
-  if (!/^\d+(\.\d{1,2})?$/.test(raw)) {
-    return { ok: false, code: "errorTooLow" };
+  /*
+   * Throttled here rather than inside placeBid, because this is the
+   * boundary untrusted input arrives at — placeBid is the domain
+   * operation and is called by the worker and the tests too.
+   *
+   * Checked before anything is written: the whole point is that a
+   * flood must not reach the bids table.
+   */
+  if (hit("bid", bidder.id, LIMITS.bidsPerUserMinute)) {
+    return { ok: false, code: "errorTooFast" };
   }
-  const [whole, fraction = ""] = raw.split(".");
-  const amountMinor = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0").slice(0, 2));
+
+  const amountMinor = parseMoneyInput(String(formData.get("amount") ?? ""));
+  if (amountMinor === null) return { ok: false, code: "errorAmount" };
 
   /*
    * The identity of this submission: which form, at which state of the

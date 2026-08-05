@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { expect, test, type Page } from "@playwright/test";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type LotStatus } from "@prisma/client";
 
 /*
  * Bidding from the browser, and the worker that closes lots.
@@ -26,6 +26,13 @@ let lotId = "";
 let approvedId = "";
 /** Restored in afterAll so the seeded catalogue is left as it was found. */
 let originalCloseAt: Date | null = null;
+/*
+ * The worker tests close whatever is genuinely due, which can include a
+ * seeded lot that aged past its clock. Snapshotting every lot and putting
+ * them back is the only way this spec can promise it leaves the catalogue
+ * as it found it — other specs assert on how many lots are listable.
+ */
+let lotSnapshot: { id: string; status: LotStatus; closedAt: Date | null }[] = [];
 
 async function cleanup() {
   // Bids are append-only by database trigger — the guarantee the whole
@@ -51,6 +58,8 @@ async function signIn(page: Page, email: string) {
 
 test.beforeAll(async () => {
   await cleanup();
+
+  lotSnapshot = await prisma.lot.findMany({ select: { id: true, status: true, closedAt: true } });
 
   const argon2 = await import("@node-rs/argon2");
   const passwordHash = await argon2.hash(PASSWORD, {
@@ -107,6 +116,23 @@ test.afterAll(async () => {
     where: { id: lotId },
     data: { status: "BIDDING_OPEN", effectiveCloseAt: originalCloseAt },
   });
+
+  /*
+   * Only the lots the worker actually moved. Rewriting every row would
+   * also clear winningBidId on lots that legitimately have one, which is
+   * a worse mess than the one this is cleaning up.
+   */
+  const now = await prisma.lot.findMany({ select: { id: true, status: true } });
+  const statusNow = new Map(now.map((lot) => [lot.id, lot.status]));
+  for (const lot of lotSnapshot) {
+    if (statusNow.get(lot.id) === lot.status) continue;
+    await prisma.lot.update({
+      where: { id: lot.id },
+      // The winning bid pointed at a bid the cleanup above removed.
+      data: { status: lot.status, closedAt: lot.closedAt, winningBidId: null },
+    });
+  }
+
   await prisma.$disconnect();
 });
 
@@ -230,6 +256,42 @@ test.describe("placing a bid", () => {
 
     const after = await prisma.bid.count({ where: { lotId, status: "accepted" } });
     expect(after).toBe(before + 1);
+  });
+
+  test("reads an amount typed the Bulgarian way as the amount meant", async ({ page }) => {
+    /*
+     * The site prints €345,000.50 as "345 000,50 €". Stripping the comma
+     * as a group separator — which every parser here used to do — turns
+     * that back into €34,500,050, a hundredfold bid that clears every
+     * downstream check because it is above the minimum. And a bid binds.
+     */
+    await signIn(page, APPROVED_EMAIL);
+    await page.goto(`/bg/lots/${SLUG}`);
+
+    const field = page.getByLabel("Вашата оферта (EUR)");
+    const minimumMajor = await field.inputValue();
+    const grouped = minimumMajor.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
+    await field.fill(`${grouped},50`);
+    await page.getByRole("button", { name: "Наддай" }).click();
+    await expect(page.getByText("Офертата ви е приета.")).toBeVisible();
+
+    const highest = await prisma.bid.findFirstOrThrow({
+      where: { lotId, status: "accepted" },
+      orderBy: { amountMinor: "desc" },
+      select: { amountMinor: true },
+    });
+    expect(highest.amountMinor).toBe(BigInt(minimumMajor) * 100n + 50n);
+  });
+
+  test("refuses an amount it cannot read rather than guessing", async ({ page }) => {
+    await signIn(page, APPROVED_EMAIL);
+    await page.goto(`/en/lots/${SLUG}`);
+
+    await page.getByLabel("Your bid (EUR)").fill("three hundred thousand");
+    await page.getByRole("button", { name: "Place bid" }).click();
+
+    await expect(page.getByText(/Enter an amount like/)).toBeVisible();
   });
 
   test("never puts the reserve in the page", async ({ page }) => {

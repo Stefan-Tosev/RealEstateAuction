@@ -30,8 +30,15 @@ export default defineConfig({
    * No route warming needed: a production build compiles everything
    * ahead of time, which is also why this suite finishes in well under a
    * minute while the dev one takes minutes.
+   *
+   * It still has to re-seed, though. This was `globalSetup: undefined`
+   * for a while, and the reasoning above is exactly how it got there —
+   * "warming is a dev concern" is true, but the dev setup was also the
+   * only thing refreshing the catalogue's relative dates. The suite we
+   * run most often was the one running against a database that aged all
+   * session.
    */
-  globalSetup: undefined,
+  globalSetup: "./tests/e2e/reseed.ts",
   webServer: {
     ...baseConfig.webServer,
     command: "npm run start",

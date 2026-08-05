@@ -32,6 +32,18 @@ export const LIMITS = {
   registrationPerIpDay: { max: 20, windowMs: 24 * 60 * 60 * 1000 },
   /** §6: 3 attempts/hour per email. */
   registrationPerEmailHour: { max: 3, windowMs: 60 * 60 * 1000 },
+  /*
+   * Bid attempts per signed-in bidder. Rejected bids are INSERTed by
+   * design (§3 — a bidder beaten by milliseconds is owed a record of
+   * having tried), and the gates reject before the amount is even read,
+   * so any verified account can otherwise write rows as fast as it can
+   * post.
+   *
+   * Set far above human behaviour on purpose. Refusing a genuine bid in
+   * the closing seconds is a far worse failure than absorbing a burst,
+   * and one a second is already frantic clicking.
+   */
+  bidsPerUserMinute: { max: 60, windowMs: 60 * 1000 },
 } as const satisfies Record<string, Limit>;
 
 /**

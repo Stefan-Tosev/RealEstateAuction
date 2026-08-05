@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { parseMoneyInput } from "@/lib/money";
 import type { DepositMethod, DepositStatus } from "@prisma/client";
 import { changeDepositStatus, recordDeposit } from "@/server/auction/deposits";
 import { decideApproval } from "@/server/identity/bidder-approvals";
@@ -50,13 +51,14 @@ export async function recordDepositAction(
     const userId = String(formData.get("userId") ?? "");
     if (!userId) return { errors: { userId: "Choose a bidder." } };
 
-    // Typed in euros, stored in minor units — same rule as everywhere.
-    const raw = String(formData.get("amount") ?? "").replace(/[\s,]/g, "");
-    if (!/^\d+(\.\d{1,2})?$/.test(raw)) {
+    // Typed in euros, stored in minor units. parseMoneyInput reads both
+    // conventions — an operator writing "5 000,50" means 5000.50, and
+    // treating that comma as grouping would record a hundred times the
+    // deposit that actually arrived.
+    const amountMinor = parseMoneyInput(String(formData.get("amount") ?? ""));
+    if (amountMinor === null) {
       return { errors: { amount: "An amount like 5000 or 5000.50." } };
     }
-    const [whole, fraction = ""] = raw.split(".");
-    const amountMinor = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0").slice(0, 2));
 
     const method = String(formData.get("method") ?? "") as DepositMethod;
     if (method !== "sepa" && method !== "card_hold") {

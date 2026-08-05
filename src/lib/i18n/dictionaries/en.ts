@@ -194,6 +194,8 @@ export const en: Dictionary = {
     bidderLabel: "Bidder {n}",
     history: "Recent bids",
     extended: "extended the clock",
+    errorTooFast: "Too many attempts. Wait a moment and try again.",
+    errorAmount: "Enter an amount like 350000 or 350000.50.",
     errorTooLow: "That bid is below the minimum.",
     errorClosed: "Bidding has closed.",
     errorNotApproved: "Your account is not approved for bidding.",

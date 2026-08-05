@@ -33,6 +33,8 @@ const ROUTES = [
   "/en/lots",
   "/bg/lots/dvustaen-karshiyaka-plovdiv",
   "/en/lots/dvustaen-karshiyaka-plovdiv",
+  "/en/lots/tristaen-lozenets-sofia", // the bidding spec's lot
+  "/en/lots/mezonet-more-varna", // a preview lot — no bid affordance
   "/bg/lots/does-not-exist", // the not-found boundary
 
   // Accounts

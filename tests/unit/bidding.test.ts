@@ -4,6 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { closeLot, closeDueLots } from "@/server/auction/close-lots";
 import { DEFAULT_BANDS, incrementForFromBands } from "@/server/auction/increments";
 import { DEFAULT_SCHEDULE, placeBid, windowFor } from "@/server/auction/place-bid";
+import { getBiddingView } from "@/server/auction/bidding-view";
 
 /*
  * The soft-close engine.
@@ -619,4 +620,81 @@ describe("concurrency", () => {
 
     expect(await prisma.bid.count({ where: { lotId: contested, status: "accepted" } })).toBe(1);
   }, 30_000);
+});
+
+describe("what the lot page is told (bidding-view)", () => {
+  it("numbers bidders in the order they first appear, and names nobody", async () => {
+    /*
+     * A seller or a rival who can tell who is bidding can approach them
+     * directly, and that is the disclosure that actually causes harm.
+     * The numbering still lets anyone see how many people are in and who
+     * is bidding against whom.
+     */
+    await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+    await placeBid({ lotId, userId: bidders[1], amountMinor: 10_250_000n, idempotencyKey: key() });
+    await placeBid({ lotId, userId: bidders[0], amountMinor: 10_500_000n, idempotencyKey: key() });
+
+    const view = await getBiddingView(lotId, bidders[0]);
+
+    expect(view.bidCount).toBe(3);
+    // Most recent first.
+    expect(view.recentBids.map((b) => b.bidderIndex)).toEqual([1, 2, 1]);
+
+    const serialised = JSON.stringify(view);
+    for (const id of bidders) expect(serialised).not.toContain(id);
+  });
+
+  it("says why someone cannot bid, not merely that they cannot", async () => {
+    const stranger = await makeBidder(9, false);
+
+    expect(await getBiddingView(lotId, null)).toMatchObject({
+      eligibility: { canBid: false, reason: "not-signed-in" },
+    });
+    expect(await getBiddingView(lotId, stranger)).toMatchObject({
+      eligibility: { canBid: false, reason: "not-approved" },
+    });
+    expect(await getBiddingView(lotId, bidders[0])).toMatchObject({
+      eligibility: { canBid: true },
+    });
+  });
+
+  it("treats a deposit-required lot as blocked until the money is recorded", async () => {
+    const depositLot = await makeLot({ closesInSeconds: 3600, depositRequiredMinor: 500_000n });
+
+    expect(await getBiddingView(depositLot, bidders[0])).toMatchObject({
+      eligibility: { canBid: false, reason: "no-deposit" },
+    });
+
+    await prisma.deposit.create({
+      data: {
+        userId: bidders[0],
+        lotId: depositLot,
+        amountMinor: 500_000n,
+        status: "held",
+        method: "sepa",
+      },
+    });
+
+    expect(await getBiddingView(depositLot, bidders[0])).toMatchObject({
+      eligibility: { canBid: true },
+    });
+  });
+
+  it("reports the preview as not open, whoever is asking", async () => {
+    // A PUBLISHED lot is a preview. Nobody is eligible, including an
+    // approved bidder — there is nothing to be eligible for yet.
+    await prisma.lot.update({ where: { id: lotId }, data: { status: "PUBLISHED" } });
+
+    expect(await getBiddingView(lotId, bidders[0])).toMatchObject({
+      eligibility: { canBid: false, reason: "not-open" },
+    });
+  });
+
+  it("never carries the reserve", async () => {
+    // Invariant 7. The view is the thing the page serialises, so this is
+    // the last place the reserve could escape.
+    const view = await getBiddingView(lotId, bidders[0]);
+    expect(JSON.stringify(view)).not.toContain("11000000");
+    expect(Object.keys(view)).not.toContain("reservePriceMinor");
+  });
 });

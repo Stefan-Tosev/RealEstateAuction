@@ -11,6 +11,8 @@ import { getPublicLotBySlug, listSimilarLots } from "@/server/catalogue/lots";
 import { getLotPack, resolveViewer } from "@/server/documents/lot-documents";
 import { LegalPack } from "@/components/legal-pack";
 import { ViewingsSection } from "@/components/viewings-section";
+import { BidPanel } from "@/components/bid-panel";
+import { getBiddingView } from "@/server/auction/bidding-view";
 import { listPublicSlots } from "@/server/viewings/bookings";
 import { formatDateTime } from "@/lib/datetime";
 
@@ -65,6 +67,7 @@ export default async function LotDetailPage({ params }: Params) {
   // other absolute date on the site.
   const bidderId = viewer.kind === "bidder" ? viewer.userId : null;
   const slots = await listPublicSlots(lot.id, bidderId, (date) => formatDateTime(date, locale));
+  const bidding = await getBiddingView(lot.id, bidderId);
   const { phase } = lot;
 
   return (
@@ -104,6 +107,8 @@ export default async function LotDetailPage({ params }: Params) {
               <h2 className="section-title">{t.detail.description}</h2>
               <p>{lot.description}</p>
             </section>
+
+            <BidPanel view={bidding} locale={locale} slug={slug} lotId={lot.id} />
 
             <LegalPack documents={pack} locale={locale} />
 

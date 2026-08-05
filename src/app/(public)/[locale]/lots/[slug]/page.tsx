@@ -8,6 +8,11 @@ import { getDictionary } from "@/lib/i18n";
 import { localeAlternates } from "@/lib/i18n/alternates";
 import { isLocale, OG_LOCALE, otherLocale } from "@/lib/i18n/locales";
 import { getPublicLotBySlug, listSimilarLots } from "@/server/catalogue/lots";
+import { getLotPack, resolveViewer } from "@/server/documents/lot-documents";
+import { LegalPack } from "@/components/legal-pack";
+import { ViewingsSection } from "@/components/viewings-section";
+import { listPublicSlots } from "@/server/viewings/bookings";
+import { formatDateTime } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +51,20 @@ export default async function LotDetailPage({ params }: Params) {
 
   const t = getDictionary(locale);
   const similar = await listSimilarLots(lot, locale);
+
+  /*
+   * The pack is viewer-dependent: everyone sees which documents exist,
+   * but filenames and links are gated. Resolved per request, so a
+   * signed-in bidder and an anonymous visitor get different payloads
+   * from the same URL.
+   */
+  const viewer = await resolveViewer();
+  const pack = await getLotPack(lot.id, viewer);
+
+  // Slot times are formatted server-side in Europe/Sofia, like every
+  // other absolute date on the site.
+  const bidderId = viewer.kind === "bidder" ? viewer.userId : null;
+  const slots = await listPublicSlots(lot.id, bidderId, (date) => formatDateTime(date, locale));
   const { phase } = lot;
 
   return (
@@ -85,6 +104,15 @@ export default async function LotDetailPage({ params }: Params) {
               <h2 className="section-title">{t.detail.description}</h2>
               <p>{lot.description}</p>
             </section>
+
+            <LegalPack documents={pack} locale={locale} />
+
+            <ViewingsSection
+              slots={slots}
+              locale={locale}
+              slug={slug}
+              isBidder={viewer.kind === "bidder"}
+            />
 
             <section className="property-location-section">
               <h2 className="section-title">{t.detail.location}</h2>

@@ -1,16 +1,26 @@
-/* Minimal admin-shell styling. Reuses the v1 navy/gold palette values
-   (css/styles.css) for visual continuity — not imported wholesale, since
-   the admin tool doesn't share v1's layout or bilingual pattern. */
+/* Admin-shell styling.
+ *
+ * Imports the shared design tokens rather than restating their values.
+ * These hexes used to be hand-copied from the v1 palette, which meant a
+ * change to the site's colours silently left the admin behind — and one
+ * of them had already drifted (--admin-error was #e2857a against the
+ * palette's #F2857A).
+ *
+ * The --admin-* names stay: they map palette roles onto admin ones, and
+ * the mapping is the useful part. The admin is dark-only on purpose, so
+ * it reads the :root values and ignores the light-theme overrides.
+ */
+/* tokens.css is imported by (admin)/layout.tsx, alongside this file. */
 
 :root {
-  --admin-bg: #0a1020;
-  --admin-bg-raised: #131a2e;
-  --admin-border: rgba(236, 239, 247, 0.12);
-  --admin-text: #eceff7;
-  --admin-text-muted: #9aa4c2;
-  --admin-royal: #6486d8;
-  --admin-brass: #c9a961;
-  --admin-error: #e2857a;
+  --admin-bg: var(--color-bg);
+  --admin-bg-raised: var(--color-bg-raised);
+  --admin-border: var(--color-border);
+  --admin-text: var(--color-ivory);
+  --admin-text-muted: var(--color-ivory-dim);
+  --admin-royal: var(--color-royal-bright);
+  --admin-brass: var(--color-brass);
+  --admin-error: var(--color-error);
 }
 
 .admin-auth {

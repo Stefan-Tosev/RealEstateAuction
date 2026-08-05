@@ -9,15 +9,3 @@ reference so they can never be mistaken for real listings.
 
 Replace by dropping real files in and updating `prisma/seeds/listings.ts`
 (filenames, alt text, and intrinsic width/height). No code changes needed.
-
-## Why this is not in `public/`
-
-Next builds a static manifest of `public/` at build time, so a file
-written there at runtime is never served — uploads worked under
-`next dev` and 404'd under `next start`. Everything here is served by the
-route handler at `src/app/media/[...key]/route.ts` instead, so seeded and
-uploaded images behave identically in both modes.
-
-Property photographs are public marketing assets and this route has no
-auth. Legal-pack documents are **not** and must never be served this way
-(see `docs/architecture.md` §5 — private storage, signed short-lived URLs).

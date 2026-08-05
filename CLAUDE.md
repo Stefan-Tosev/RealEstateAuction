@@ -1,118 +1,129 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) when working in this repository.
 
-## ⚠ The project is being rebuilt — read this first
+## What this is
 
-As of **August 2026** this repository is mid-pivot.
+**Auction House** — a real-estate auction platform for the Bulgarian market: Next.js 15 (App Router), React 19, TypeScript, PostgreSQL via Prisma.
 
-- **`docs/architecture.md` is the authoritative spec for v2** — a real platform (Next.js + TypeScript + PostgreSQL) with live soft-close bidding. Read it before starting any new work.
-- **Everything else described below is the v1 static prototype.** It is a design reference — the visual language, the bilingual pattern and the validation rules are all worth carrying forward — but it is *not* the target architecture.
+**`docs/architecture.md` is the authoritative spec.** Read it before starting anything substantial; it defines the lot lifecycle, the soft-close engine, the data model and the build order. **`docs/server-validation.md`** is the companion spec for bidder registration and remains binding.
 
-So: the "no framework, no build step, no dependencies" constraint below applies to the **existing prototype files only**. It does not apply to v2 work. If a task mentions schema, auth, an admin panel, a backend or a build step, that is v2 — follow `docs/architecture.md`, not the constraints in this file.
+The v1 static prototype (`index.html`, `css/`, `js/`) has been removed. Everything it established that was worth keeping — the design tokens, the bilingual pattern, the ЕИК and phone validators, the countdown format — now lives in `src/`.
 
-`docs/server-validation.md` holds the server-side validation spec for registration and stays valid for v2.
-
----
-
-## Overview (v1 prototype)
-
-Auction House — a static landing page + property detail page for a luxury real estate auction platform. Plain HTML/CSS/JS, no framework, no build step, no package.json, no dependencies.
-
-## Running locally
-
-No build step. Serve the directory with any static file server:
+## Running it
 
 ```bash
-python3 -m http.server 8000
-# or
-npx serve .
+npm run dev            # http://localhost:3000
+npm run db:migrate     # apply migrations
+npm run db:seed        # demo catalogue; idempotent, refreshes relative dates
+npm test               # unit (vitest)
+npm run test:e2e       # e2e against next dev
+npm run test:e2e:prod  # builds first, then runs against next start
+npm run clean          # clear .next
 ```
 
-Then open `http://localhost:8000`. There is no lint/test/build tooling in this repo — changes are verified by opening the pages in a browser.
+PostgreSQL must be running on `localhost:5432` — the e2e suite hits the real database.
 
-## Architecture
+**Run `npm run clean` when switching between the dev and prod e2e suites.** The prod run leaves a production build in `.next`, and the dev run then recompiles from it slowly enough to produce dozens of spurious failures.
 
-Three pages share a header/footer shell and all load `js/main.js`; `property.html` additionally loads `js/property.js`, and `register.html` loads `js/register.js`.
+**Check nothing else holds port 3000.** If something does, Next silently binds 3001 while Playwright waits on 3000, and the run produces no output at all rather than an error.
 
-- **`index.html`** — the landing page. Contains the featured hero lot and a static grid of lot `<article class="lot-card">` cards, hand-authored directly in the HTML (this is duplicated data — see below).
-- **`property.html`** — a single detail-page template for *any* listing. It has no hardcoded content; `<div id="property-root">` is populated entirely by `js/property.js` at runtime based on the `?id=` query param.
-- **`register.html`** — Stage 1 bidder registration (account creation). See "Registration form" below.
-- **`js/main.js`** — site-wide behavior loaded on every page:
-  - Bilingual BG/EN toggle (see below) — persisted to `localStorage` under `auctionhouse-lang`.
-  - Light/dark theme toggle (see below) — persisted to `localStorage` under `auctionhouse-theme`, defaulting to the OS `prefers-color-scheme` on first visit.
-  - Mobile nav toggle.
-  - Countdown timers: reads `data-close` (ISO datetime) off any `[data-close]` element and live-updates its `[data-countdown]` child every second; tags the countdown with `[data-urgent]` inside 48 hours of close.
-  - Exposes `window.AuctionHouse = { setLanguage, getLanguage, setTheme, getTheme, initCountdowns }` so other scripts (i.e. `property.js`) can reinitialize countdowns on content it injects after the fact.
-- **`js/property.js`** — owns the `LISTINGS` array, the **single source of truth for all listing data** (id, title, location, price, bid type, close date, images, bilingual description, etc.). It renders the entire property detail page client-side from this array (gallery, header, price panel, key details, description, location, "similar properties").
+## What exists (Phase 1 complete)
 
-### Important: listing data is duplicated between index.html and js/property.js
+**Public catalogue** — lot index and detail pages, driven by the database, bilingual on separate URLs.
+**Admin** — property and lot CRUD, image upload, legal-pack documents, viewing slots, publish workflow.
+**Bidder accounts** — registration with email verification, sign-in, viewing bookings.
 
-The lot cards on `index.html` are static HTML, hand-written per lot. The same listings also exist as objects in the `LISTINGS` array in `js/property.js` (used to render `property.html?id=<id>`), including a `renderLotCard()` function there that generates markup equivalent to the homepage cards (used for the "Similar Properties" section).
+Not built: bidding itself, deposits, bidder approval (Phase 2), the soft-close engine (Phase 3).
 
-**When adding, editing, or removing a lot, update both places**: the `<article class="lot-card">` block in `index.html` (using the next lot number/id) and the matching object in the `LISTINGS` array in `js/property.js`. Keep `data-close`/`closeDate` (ISO 8601 with offset) and the id (`?id=011`, etc.) consistent between the two, since price, meta, and status fields aren't otherwise validated against each other.
+## Architecture notes worth knowing before changing things
 
-### Bilingual content pattern (BG default / EN)
+### Two root layouts
 
-All user-facing copy is written twice, inline, using paired spans:
+`src/app/(public)/[locale]/layout.tsx` and `src/app/(admin)/layout.tsx`. Only one component may own `<html>`, and the public one needs `params.locale` for its `lang` attribute, which a shared root cannot read. Route groups are URL-invisible, so `/admin/login` is still `/admin/login`.
 
-```html
-<span data-bg>Българският текст</span><span data-en>The English text</span>
-```
+### Route-based locales
 
-CSS (`.lang-bg [data-en] { display: none; }` / `.lang-en [data-bg] { display: none; }`) shows only the active language; `main.js` toggles a `lang-bg`/`lang-en` class on `<body>`. `js/property.js` builds this same pattern programmatically via its `bilingual(bg, en)` helper when generating markup. Any new user-facing string must follow this pattern in both languages — don't add English- or Bulgarian-only text.
+`/bg/...` and `/en/...`, one language per URL, with real `hreflang` alternates. This replaced v1's render-both-and-hide-with-CSS approach, which doubled the DOM and showed search engines both languages in one document.
 
-### Color system: two accent roles
+Dictionaries are typed objects read as `t.lot.closesIn`, never `t("lot.closesIn")` — a renamed key must be a build error, not `undefined` in the page.
 
-The palette is Oxford navy with **two accents that carry different jobs**. Keeping them in their lanes is what makes the page read as a luxury auction house rather than a generic blue site:
+### Two session kinds, one Auth.js instance
 
-- **Royal blue** (`--color-royal`, `--color-royal-bright`) = **structure**: eyebrows, step numbers, lot counts, footer headings, focus ring, borders, hover states, active language button.
-- **Champagne gold** (`--color-brass`, `--color-brass-bright`) = **value**: prices, countdowns, the primary CTA (`.btn-brass`), the `em` emphasis word in headings, the logo mark, lot-number chips, the featured card glow, and the price panel's top edge.
+Operators come from `admin_users`, bidders from `users`. The session carries `kind: "admin" | "bidder"`, and **`requireAdmin()` asserts it** rather than inferring authority from a role field being present. Middleware checks it too. Never write a check that reasons "it has a role, so it must be staff".
 
-Gold is deliberately scarce — that scarcity is the effect. When adding a new accented element, ask whether it is *structure* or *value* and use the matching token; defaulting everything to gold is what made an earlier revision look cheap.
+### The reserve price never leaves the server
 
-`--color-royal` is a fill/border color only — it does **not** pass contrast as text on the page background. Use `--color-royal-bright` for any blue text.
+`docs/architecture.md` §3 invariant 7. Enforced structurally: `src/server/catalogue/select.ts` holds Prisma `select` allowlists that omit it, and the mappers type their input off those selects, so reading it does not compile. Never use `include` or a bare `findMany` for public lot queries.
 
-### Light/dark theme
+`src/server/catalogue/admin.ts` may read it — and must never be imported by anything under `src/app/(public)`.
 
-`:root` holds the dark theme (default); `body.theme-light` overrides only the tokens that must flip. Four tokens are intentionally *not* overridden, because their surfaces stay dark in both modes:
+### Mappers are the serialization boundary
 
-- `--color-band` / `--color-on-band` — the stats band stays a deep navy contrast block in light mode too.
-- `--color-urgent` / `--color-on-urgent` — the "Closing Soon" chip sits on top of a photo, so it keeps its amber fill and dark ink regardless of page theme.
+Prisma rows carry `bigint`, `Prisma.Decimal` and `Date`. All three break when passed to a client component. Everything crossing out of `src/server/catalogue/mappers.ts` is a string, number or plain object. Money crosses as a decimal string of minor units, never a number.
 
-Note the naming quirk: in the light theme `--color-brass-bright` and `--color-royal-bright` are *darker* than their base tokens. "Bright" means "more prominent," not literally lighter — these are the text-safe variants in each theme.
+The same rule applies in the admin: pass plain values to client components, not rows.
 
-Urgency is signalled by **hue and weight together** (`.lot-countdown[data-urgent]` gets `font-weight: 500`), because amber and champagne sit adjacent in every lot card's price row and are close in luminance.
+### Preview and bidding are different phases
 
-`main.js` toggles `theme-dark`/`theme-light` on `<body>` via `.theme-toggle` buttons (sun/moon SVGs swapped by CSS on the body class) in the header and mobile nav. Prefer existing tokens over new hardcoded hex values so both themes stay correct.
+`derivePhase()` turns `LotStatus` into a discriminated union. A `PUBLISHED` lot counts down to `biddingOpensAt` and must offer **no bid affordance at all**; `BIDDING_OPEN` and `EXTENDING` count down to `effectiveCloseAt`. Components read `phase.kind` and never inspect `status` themselves.
 
-### Registration form (`register.html` + `js/register.js`)
+It derives from the stored status, not from comparing timestamps to the clock — the soft-close engine will own those transitions.
 
-**Stage 1 only — account creation.** ЕГН, ID documents and proof of funds are deliberately *not* collected: this is a static site with nowhere lawful to store them. That split is intentional; don't "complete" the form by adding them without a backend.
+### Countdowns use server time
 
-**Nothing is submitted.** There is no server, so `submit` is stubbed and the success notice says plainly that no account was created. Do not replace it with a fake success message — it would lie to the user about a password they just typed.
+`/api/time` plus a provider that syncs once per page and corrects for the round-trip midpoint. The device clock supplies elapsed time only. The timestamp is deliberately not embedded in page HTML: cached output would make the offset wrong by the cache age.
 
-Everything in `register.js` is a **UX control, not a security control**. Every rule must be re-run server-side before it can be trusted — see **`docs/server-validation.md`** for the matching server spec (endpoint contract, normalisation order, enumeration resistance, retention, and the CI parity-testing requirement that keeps the two from drifting).
+### Money and dates
 
-Key decisions worth preserving:
+Money is `bigint` minor units; `src/lib/money.ts` is the only place it is formatted. There is no currency column — everything is EUR, as one constant.
 
-- **`novalidate` is required, on every form.** Native constraint-validation bubbles render in the *browser's* locale and ignore the site's БГ/EN toggle. The same applies to the landing-page CTA form, validated in `main.js`.
-- **Error messages are injected as paired `data-bg`/`data-en` spans**, so switching language is handled by the existing CSS alone — no re-render, no stale-language errors. `display:none` also hides the inactive copy from screen readers, so this stays a11y-correct. Note this only works for *content*; `aria-label`, `placeholder` and `setCustomValidity()` are plain strings and would need `AuctionHouse.getLanguage()`.
-- **Names accept Cyrillic and Latin** via `\p{L}` — an `[A-Za-z]` pattern is a guaranteed defect on a Bulgarian site.
-- **Dates are parsed from `YYYY-MM-DD` parts, never `new Date(string)`**, which parses as UTC and shifts the day backwards east of Greenwich — the off-by-one that lets 17-year-olds through. The "18th birthday is today" case must pass.
-- **ЕИК/BULSTAT** uses the real two-pass mod-11 checksum (9- and 13-digit forms).
-- **Phone** is permissive by design (BG mobile, BG landlines of varying length, and generic E.164 for foreign bidders); real validation is possession via SMS OTP server-side.
-- **Password follows NIST SP 800-63B**: length over composition, no forced character classes, no rotation, ≥64 accepted, and paste is never blocked. The breach check that matters needs a server.
-- **Consent checkboxes are unticked** and marketing is separately refusable — pre-ticked consent is invalid under GDPR.
-- **Errors never rely on colour alone** — `.field-error` carries a `⚠` glyph via `::before` plus `aria-invalid` and `aria-describedby`.
-- Hidden company fields are **cleared and their errors dropped** on account-type switch; leaving a hidden field invalid produces a form that won't submit with no visible reason.
+All absolute dates are formatted **server-side** in `Europe/Sofia` and cross to the client as strings. The only browser time arithmetic is the countdown, which is a duration and therefore timezone-free. This removes the whole hydration-mismatch class.
 
-### Images
+Age is computed by integer comparison of civil calendar parts in Sofia, so no offset or DST transition can perturb it. The "18th birthday is today" case must pass.
 
-`js/property.js` supports two image sources per listing, both handled by `imageMarkup()`:
-- A real photo: a path string like `'assets/images/dvustaen-ribbon.jpg'` → renders an `<img>`.
-- A placeholder: `'gradient:<css-class>'` (e.g. `'gradient:lot-image-2'`) → renders a `<div>` styled by that CSS class (gradients defined in `css/styles.css`) for lots that don't have a real photo yet.
+### Media versus documents
 
-### Styling
+**Property photographs** are public marketing assets: `media/`, served by `src/app/media/[...key]/route.ts` with no auth.
 
-Single stylesheet at `css/styles.css`, token-driven via CSS custom properties defined in `:root` (colors, fonts, container width, transitions). Respects `prefers-reduced-motion` globally. No CSS build step/preprocessor — edit the file directly.
+**Legal-pack documents** are not: `private/`, gitignored, served only through `src/app/api/documents/[id]/route.ts` with a signed short-lived link, entitlement re-checked per request, `Content-Disposition: attachment` unconditionally. Never render a user-supplied PDF inline from our own origin — that is same-origin XSS. The route answers 404, never 403, because "this exists and you cannot have it" is itself a disclosure.
+
+Neither lives in `public/`. Next serves that directory from a manifest built at build time, so anything written there at runtime is invisible to `next start` — uploads worked in dev and 404'd in production.
+
+### Uploads
+
+Format is decided by magic bytes, never the filename or the browser-supplied type. Photographs are re-encoded through sharp, which strips EXIF — a camera JPEG of a property carries the coordinates it was taken at, often the seller's home. Documents are stored byte-identical, because a legal document must stay what the notary produced; its sha256 is recorded so that can be proven.
+
+### Colour: two accent roles
+
+Royal blue is **structure** (borders, focus, hover, labels, counts). Champagne gold is **value** (prices, countdowns, primary CTA, logo). Gold is deliberately scarce — that scarcity is the effect. Ask whether a new element is structure or value and use the matching token.
+
+`--color-royal` is a fill/border colour only; use `--color-royal-bright` for blue text. In the light theme the `-bright` variants are *darker* — "bright" means "more prominent", not lighter. Do not "fix" this.
+
+Four tokens deliberately do not flip between themes: `--color-band`, `--color-on-band`, `--color-urgent`, `--color-on-urgent`.
+
+`src/styles/tokens.css` is the single source. `admin.css` maps those onto `--admin-*` names; it must not restate the values.
+
+### Forms
+
+`novalidate` on every form. Native constraint bubbles render in the browser's locale and ignore the site's language, and leaving them on means the server rules never get exercised.
+
+Errors never rely on colour alone — a `⚠` glyph plus `aria-invalid` and `aria-describedby`. Consent checkboxes start unticked and marketing is separately refusable; pre-ticked consent is invalid under GDPR.
+
+When two forms share a page, give their fields distinct DOM ids. Duplicate ids mean the label points at whichever element comes first.
+
+### Registration is Stage 1 only
+
+Account creation. ЕГН, identity documents and proof of funds belong to Stage 2, behind manual review. The API returns **error codes, never prose** — the client owns the copy so it can render in either language.
+
+Duplicate and new addresses are indistinguishable in status, body **and timing**. Both paths do the Argon2 work and are padded to a common floor. Do not add a "check email availability" endpoint; it is an enumeration oracle by construction.
+
+Passwords follow NIST SP 800-63B: length over composition, no character-class rules, no rotation, all printable Unicode. There is a test asserting no composition rules exist — that is deliberate.
+
+## Testing
+
+`tests/unit` (vitest) for pure logic; `tests/e2e` (Playwright) for behaviour and security boundaries. `tests/fixtures/registration-cases.json` is the shared parity matrix from `docs/server-validation.md` §9 — the unit tests read it rather than restating its cases.
+
+Specs that create data clean up after themselves. **Deleting a row that owns a file is not the same as deleting the file** — that has leaked twice.
+
+The e2e suite is strong on behaviour and blind to layout. Twice a whole suite was green while a page rendered with no shell at all. Screenshot the result when the change is visual.

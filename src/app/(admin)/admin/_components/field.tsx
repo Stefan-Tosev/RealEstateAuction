@@ -17,12 +17,23 @@ export function Field({
   label,
   error,
   hint,
+  id,
   children,
 }: {
   name: string;
   label: string;
   error?: string;
   hint?: string;
+  /**
+   * Overrides the DOM id, which otherwise defaults to `name`.
+   *
+   * Needed when two forms on one page share a field name — the lot page
+   * has both a document form and a viewing form with a "kind" field.
+   * Duplicate ids are not cosmetic: the label then points at whichever
+   * element comes first, so clicking one form's label focuses the
+   * other's control.
+   */
+  id?: string;
   children: (props: {
     id: string;
     name: string;
@@ -30,15 +41,16 @@ export function Field({
     "aria-describedby"?: string;
   }) => ReactNode;
 }) {
-  const errorId = `${name}-error`;
-  const hintId = `${name}-hint`;
+  const fieldId = id ?? name;
+  const errorId = `${fieldId}-error`;
+  const hintId = `${fieldId}-hint`;
   const describedBy = [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ");
 
   return (
     <div className="admin-field">
-      <label htmlFor={name}>{label}</label>
+      <label htmlFor={fieldId}>{label}</label>
       {children({
-        id: name,
+        id: fieldId,
         name,
         ...(error ? { "aria-invalid": "true" as const } : {}),
         ...(describedBy ? { "aria-describedby": describedBy } : {}),

@@ -153,6 +153,81 @@ body.theme-light .theme-toggle .icon-moon { display: block; }
   .footer-inner { grid-template-columns: 1fr; }
 }
 
+
+/* ---------------------------------------------------
+   Mobile navigation
+--------------------------------------------------- */
+/*
+   A <details> element: opens without JavaScript, is keyboard-operable
+   for free, and reports its expanded state to assistive technology
+   without any aria wiring to get wrong.
+*/
+.mobile-nav { display: none; }
+
+.mobile-nav > summary {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  padding: 9px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  list-style: none;
+}
+
+/* Safari still draws the disclosure triangle without this. */
+.mobile-nav > summary::-webkit-details-marker { display: none; }
+.mobile-nav > summary::marker { content: ""; }
+
+.mobile-nav > summary span {
+  display: block;
+  height: 2px;
+  background: var(--color-ivory);
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+/* The bars become a cross when open. */
+.mobile-nav[open] > summary span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.mobile-nav[open] > summary span:nth-child(2) { opacity: 0; }
+.mobile-nav[open] > summary span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+.mobile-nav-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 24px 20px;
+  background: var(--color-header-bg);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mobile-nav-panel a {
+  padding: 12px 0;
+  color: var(--color-ivory-dim);
+}
+.mobile-nav-panel a:hover { color: var(--color-ivory); }
+
+.mobile-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
 @media (max-width: 860px) {
-  .main-nav { display: none; }
+  /* The header becomes the positioning context for the dropdown. */
+  .header-inner { position: relative; }
+  .mobile-nav { display: block; }
+  .main-nav,
+  .header-actions { display: none; }
 }

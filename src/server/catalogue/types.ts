@@ -60,6 +60,16 @@ export type PublicLotSummary = {
 };
 
 export type PublicLotDetail = PublicLotSummary & {
+  /*
+   * The lot id, on the detail DTO only.
+   *
+   * A UUID is not sensitive and the detail page needs it to fetch the
+   * legal pack. The alternative — re-resolving the lot from its slug
+   * inside the pack query — would duplicate the status-visibility rules
+   * and let the two drift apart, which is a worse trade than exposing
+   * an opaque identifier.
+   */
+  id: string;
   propertyType: PropertyType;
   description: string;
   address: string;

@@ -470,3 +470,162 @@
     padding-bottom: 8px;
   }
 }
+
+/* ---------------------------------------------------
+   Legal pack
+--------------------------------------------------- */
+/*
+   Lives on the lot page rather than a page of its own — §5 calls the
+   pack "what earns the 21-day preview", so it belongs where the buyer
+   already is.
+*/
+
+.pack-lede {
+  color: var(--color-ivory-dim);
+  font-size: 0.92rem;
+  margin-bottom: 20px;
+}
+
+.pack-empty {
+  color: var(--color-ivory-dim);
+  font-size: 0.95rem;
+}
+
+.pack-list {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.pack-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--color-bg-raised);
+}
+
+.pack-item + .pack-item { border-top: 1px solid var(--color-border); }
+
+/* A gated row is dimmed but never hidden: the visitor needs to know the
+   document exists, or the gate captures no lead at all. */
+.pack-item[data-locked="true"] { background: transparent; }
+
+.pack-item-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pack-kind {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--color-ivory);
+}
+
+.pack-filename {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--color-ivory-dim);
+  overflow-wrap: anywhere;
+}
+
+.pack-size {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--color-ivory-dim);
+  white-space: nowrap;
+}
+
+.pack-action { flex: 0 0 auto; }
+
+.btn-sm { padding: 8px 14px; font-size: 0.82rem; }
+
+.pack-locked {
+  font-size: 0.8rem;
+  color: var(--color-ivory-dim);
+  text-align: right;
+  max-width: 14ch;
+}
+
+@media (max-width: 640px) {
+  .pack-item { flex-wrap: wrap; gap: 8px 12px; }
+  .pack-item-main { flex: 1 0 100%; }
+  .pack-locked { max-width: none; text-align: left; }
+}
+
+/* ---------------------------------------------------
+   Viewings
+--------------------------------------------------- */
+.viewings-lede,
+.viewings-empty {
+  color: var(--color-ivory-dim);
+  font-size: 0.92rem;
+  margin-bottom: 20px;
+}
+
+.slot-list {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--color-bg-raised);
+}
+
+.slot + .slot { border-top: 1px solid var(--color-border); }
+
+/* A full slot is dimmed but still listed — remaining places are the
+   information a buyer is looking for either way. */
+.slot[data-full="true"] { background: transparent; }
+
+.slot-when { flex: 1 1 auto; min-width: 0; }
+
+.slot-date {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--color-ivory);
+}
+
+.slot-meta {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.8rem;
+  color: var(--color-ivory-dim);
+}
+
+.slot-places {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--color-ivory-dim);
+  white-space: nowrap;
+}
+
+.slot-action {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.slot-error {
+  font-size: 0.76rem;
+  color: var(--color-error);
+  max-width: 20ch;
+  text-align: right;
+}
+.slot-error::before { content: "⚠ "; }
+
+@media (max-width: 640px) {
+  .slot { flex-wrap: wrap; gap: 8px 12px; }
+  .slot-when { flex: 1 0 100%; }
+  .slot-action { align-items: flex-start; }
+  .slot-error { text-align: left; max-width: none; }
+}

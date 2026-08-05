@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { enqueue } from "@/server/notifications/outbox";
 import { minimumNextBid } from "./increments";
 
 /*
@@ -64,7 +65,17 @@ export type BidRequest = {
  */
 
 export async function placeBid(request: BidRequest): Promise<BidOutcome> {
-  return prisma.$transaction(async (tx) => {
+  /*
+   * Set inside the transaction, read only after it has committed. If the
+   * transaction throws, $transaction rejects and this is never reached;
+   * if it returns, the bid is durable and the person it displaced is
+   * owed an alert.
+   */
+  const pending: { displaced: { userId: string; amountMinor: bigint } | null } = {
+    displaced: null,
+  };
+
+  const outcome = await prisma.$transaction(async (tx) => {
     /*
      * Lock the lot first. Everything below happens with no other bid on
      * this lot in flight and with the closing worker blocked.
@@ -216,24 +227,17 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
     /*
      * Reset, do not add (§3). Adding lets ten rapid bids pile on fifty
      * minutes; resetting keeps the promise simple and true — there will
-     * always be a quiet window before the gavel.
+     * always be five quiet minutes before the gavel.
      *
      * Invariant 3: the second of two bids in the same final second
      * extends from the already-extended time, because it reads
      * effective_close_at after the first transaction committed.
-     */
-    /*
-     * Reset to the *decayed* window, not to the lot's flat reset value.
      *
-     * §3's table is headed "Window", but its own arithmetic — "thirty
-     * rounds costs ~64 minutes instead of 150" — only works if the reset
-     * decays too: 2x5 + 2x3 + 26x2 is 68 minutes, while a flat 5-minute
-     * reset is 150 however narrow the trigger window gets. Decaying only
-     * the trigger changes which bids extend, never by how much, so the
-     * endgame never actually shortened.
-     *
-     * soft_close_reset_seconds stays as the floor for a lot with no
-     * schedule of its own.
+     * The reset follows the schedule rather than sitting at a flat
+     * soft_close_reset_seconds, which now acts as a cap. Decaying only
+     * the trigger window changes *which* bids extend but never *by how
+     * much*, so a decaying schedule shortened nothing at all. The
+     * default schedule is flat five minutes — see windowFor.
      */
     const resetSeconds = Math.min(windowSeconds, lot.soft_close_reset_seconds);
     const extendedTo = insideWindow ? new Date(now.getTime() + resetSeconds * 1000) : null;
@@ -241,8 +245,22 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
     const previous = await tx.bid.findFirst({
       where: { lotId: request.lotId, status: "accepted" },
       orderBy: { amountMinor: "desc" },
-      select: { id: true },
+      select: { id: true, userId: true },
     });
+
+    /*
+     * Recorded here, sent after the transaction commits. §3: "Only after
+     * commit: broadcast to subscribers, then enqueue outbid
+     * notifications." A notification sent inside the transaction can
+     * describe a bid that then rolls back, and there is no unsending it.
+     *
+     * Nobody is told they were outbid by themselves. Raising your own
+     * highest bid is legitimate — fixed steps make it the only way to
+     * signal above the next rung — but it is not an outbidding.
+     */
+    if (previous && previous.userId !== request.userId) {
+      pending.displaced = { userId: previous.userId, amountMinor: request.amountMinor };
+    }
 
     const bid = await tx.bid.create({
       data: {
@@ -278,6 +296,35 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
       replayed: false,
     };
   });
+
+  /*
+   * §4: "Indefinite extension is only fair if outbid bidders know."
+   * Without this the soft close protects whoever happens to be staring
+   * at the screen, which is a fairness defect rather than a missing
+   * nicety. Queued through the outbox so a mail provider outage delays
+   * it instead of losing it.
+   *
+   * A failure here must not undo an accepted bid. The bid is committed
+   * and binding; a missing email is a smaller problem than a bid that
+   * vanishes because the notification queue hiccuped.
+   */
+  if (outcome.ok && pending.displaced) {
+    try {
+      await enqueue({
+        userId: pending.displaced.userId,
+        channel: "email",
+        template: "outbid",
+        payload: {
+          lotId: request.lotId,
+          amountMinor: pending.displaced.amountMinor.toString(),
+        },
+      });
+    } catch (error) {
+      console.error("[place-bid] outbid notification could not be queued:", error);
+    }
+  }
+
+  return outcome;
 }
 
 /**

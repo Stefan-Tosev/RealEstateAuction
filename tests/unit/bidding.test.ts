@@ -763,6 +763,51 @@ describe("concurrency", () => {
   }, 30_000);
 });
 
+describe("outbid notifications (§4)", () => {
+  it("tells the bidder who was displaced", async () => {
+    /*
+     * §4: "Indefinite extension is only fair if outbid bidders know."
+     * With an open-ended close and no alert, the soft close protects
+     * whoever happens to be staring at the screen — a fairness defect
+     * rather than a missing nicety.
+     */
+    await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+    await placeBid({ lotId, userId: bidders[1], amountMinor: 10_500_000n, idempotencyKey: key() });
+
+    const queued = await prisma.outbox.findMany({ where: { userId: bidders[0] } });
+    expect(queued.map((o) => o.template)).toContain("outbid");
+
+    // The bidder who did the outbidding hears nothing.
+    expect(await prisma.outbox.count({ where: { userId: bidders[1], template: "outbid" } })).toBe(0);
+  });
+
+  it("does not tell anyone they outbid themselves", async () => {
+    /*
+     * Raising your own highest bid is legitimate — with fixed steps it
+     * is the only way to signal above the next rung — but it is not an
+     * outbidding, and an email saying so reads as a bug.
+     */
+    await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+    await placeBid({ lotId, userId: bidders[0], amountMinor: 10_500_000n, idempotencyKey: key() });
+
+    expect(await prisma.outbox.count({ where: { template: "outbid" } })).toBe(0);
+  });
+
+  it("queues nothing for a bid that was refused", async () => {
+    await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+    await placeBid({ lotId, userId: bidders[1], amountMinor: 1n, idempotencyKey: key() });
+
+    expect(await prisma.outbox.count({ where: { template: "outbid" } })).toBe(0);
+  });
+
+  it("queues nothing for the first bid on a lot", async () => {
+    // Nobody was displaced.
+    await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+
+    expect(await prisma.outbox.count({ where: { template: "outbid" } })).toBe(0);
+  });
+});
+
 describe("what the lot page is told (bidding-view)", () => {
   it("numbers bidders in the order they first appear, and names nobody", async () => {
     /*

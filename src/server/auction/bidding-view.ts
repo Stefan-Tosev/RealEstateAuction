@@ -17,6 +17,12 @@ export type BidEligibility =
 
 export type BiddingView = {
   status: string;
+  /**
+   * The live close, extensions included. Carried so LiveLot's opening
+   * pulse is built from the same read as the panel — a first poll that
+   * disagrees with the page would refresh it for nothing.
+   */
+  closeAtIso: string | null;
   /** Highest accepted bid, or null before the first one. */
   currentMinor: string | null;
   /** The one amount that will be accepted next. Not a floor — a step. */
@@ -43,6 +49,7 @@ export async function getBiddingView(
     where: { id: lotId },
     select: {
       status: true,
+      effectiveCloseAt: true,
       startingPriceMinor: true,
       bidIncrementMinor: true,
       depositRequiredMinor: true,
@@ -66,11 +73,10 @@ export async function getBiddingView(
   const currentMinor = highest._max.amountMinor ?? null;
   /*
    * Resolved the same way placeBid resolves it, through the same
-   * functions. The page must never advertise a step the engine would
+   * functions — the page must never advertise a step the engine would
    * refuse.
-   */
-  /*
-   * Resolved at the price the lot is actually at, which before the first
+   *
+   * Banded at the price the lot is actually at, which before the first
    * bid is the guide price rather than zero. Falling back to zero picks
    * the bottom band and tells a bidder on a €345,000 lot that bidding
    * moves in €2,000 steps, when the first raise will be €10,000.
@@ -101,6 +107,7 @@ export async function getBiddingView(
 
   return {
     status: lot.status,
+    closeAtIso: lot.effectiveCloseAt?.toISOString() ?? null,
     currentMinor: currentMinor?.toString() ?? null,
     minimumMinor: minimum.toString(),
     incrementMinor: increment.toString(),

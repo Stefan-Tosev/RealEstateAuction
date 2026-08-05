@@ -53,6 +53,7 @@ const ROUTES = [
   // Media and documents are both served by route handlers, so both compile.
   "/media/properties/dvustaen-karshiyaka-plovdiv/01.jpg",
   "/api/documents/00000000-0000-0000-0000-000000000000",
+  "/api/lots/00000000-0000-0000-0000-000000000000/pulse",
 
   "/admin/login",
 ];

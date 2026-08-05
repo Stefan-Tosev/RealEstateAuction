@@ -20,10 +20,22 @@ const PREVIEW_SLUG = "mezonet-more-varna";
 const PREFIX = "pw-bid-";
 const APPROVED_EMAIL = `${PREFIX}approved@example.bg`;
 const PENDING_EMAIL = `${PREFIX}pending@example.bg`;
+const RIVAL_EMAIL = `${PREFIX}rival@example.bg`;
 const PASSWORD = "granite harbour lantern fold";
 
 let lotId = "";
 let approvedId = "";
+let rivalId = "";
+
+/** The same formatting the page uses, so button names can be asserted. */
+function eur(minor: bigint): string {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: minor % 100n === 0n ? 0 : 2,
+    maximumFractionDigits: minor % 100n === 0n ? 0 : 2,
+  }).format(Number(minor) / 100);
+}
 /** Restored in afterAll so the seeded catalogue is left as it was found. */
 let originalCloseAt: Date | null = null;
 /*
@@ -87,6 +99,15 @@ test.beforeAll(async () => {
   });
 
   await prisma.user.create({ data: { ...base, email: PENDING_EMAIL, lastName: "Чакаща" } });
+
+  const rival = await prisma.user.create({
+    data: { ...base, email: RIVAL_EMAIL, firstName: "Георги", lastName: "Съперник" },
+    select: { id: true },
+  });
+  rivalId = rival.id;
+  await prisma.bidderApproval.create({
+    data: { userId: rivalId, status: "approved", reviewedAt: new Date() },
+  });
 
   const lot = await prisma.lot.findFirstOrThrow({
     where: { property: { slug: SLUG } },
@@ -310,6 +331,88 @@ test.describe("placing a bid", () => {
     // Bounded by digit boundaries — a bare substring matches float noise
     // in the dev payload and fails for the wrong reason.
     expect(body).not.toMatch(new RegExp(`(?<!\\d)${lot.reservePriceMinor}(?!\\d)`));
+  });
+});
+
+test.describe("the page keeps itself current", () => {
+  test("the pulse reports the lot without leaking anything private", async ({ request }) => {
+    const response = await request.get(`/api/lots/${lotId}/pulse`);
+    expect(response.ok()).toBe(true);
+    // Never cached: a stale pulse reports a lot as quiet while bids land,
+    // which is the one thing it exists to catch.
+    expect(response.headers()["cache-control"]).toContain("no-store");
+
+    const pulse = await response.json();
+    expect(pulse.status).toBe("BIDDING_OPEN");
+    expect(typeof pulse.bidCount).toBe("number");
+
+    /*
+     * Unauthenticated, so it must carry nothing a visitor cannot already
+     * read on the page — and above all not the reserve.
+     */
+    const lot = await prisma.lot.findUniqueOrThrow({
+      where: { id: lotId },
+      select: { reservePriceMinor: true },
+    });
+    const body = JSON.stringify(pulse);
+    expect(body).not.toMatch(new RegExp(`(?<!\d)${lot.reservePriceMinor}(?!\d)`));
+    expect(Object.keys(pulse).sort()).toEqual(["bidCount", "closeAtIso", "currentMinor", "status"]);
+  });
+
+  test("is 404 for a lot that does not exist", async ({ request }) => {
+    const response = await request.get(
+      "/api/lots/00000000-0000-0000-0000-000000000000/pulse",
+    );
+    expect(response.status()).toBe(404);
+  });
+
+  test("shows a rival's bid without the page being reloaded", async ({ page, browser }) => {
+    /*
+     * The reason §4 exists. One bidder sits on the lot page; another
+     * bids from elsewhere; the first must see the new price without
+     * touching anything, or an open-ended close only protects whoever
+     * happens to be refreshing.
+     */
+    await signIn(page, APPROVED_EMAIL);
+    await page.goto(`/en/lots/${SLUG}`);
+
+    const before = await prisma.bid.aggregate({
+      where: { lotId, status: "accepted" },
+      _max: { amountMinor: true },
+    });
+    const current = before._max.amountMinor!;
+
+    // A second bidder, in a separate browser context entirely.
+    const rival = await browser.newContext();
+    const rivalPage = await rival.newPage();
+    await signIn(rivalPage, RIVAL_EMAIL);
+    await rivalPage.goto(`/en/lots/${SLUG}`);
+    await rivalPage.getByRole("button", { name: /^Bid / }).click();
+    await expect(rivalPage.getByText("Your bid was accepted.")).toBeVisible();
+    await rival.close();
+
+    const after = await prisma.bid.aggregate({
+      where: { lotId, status: "accepted" },
+      _max: { amountMinor: true },
+    });
+    expect(after._max.amountMinor).toBeGreaterThan(current);
+
+    // The first page updates itself within a poll or two.
+    await expect(page.getByText(`Current bid`)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `Bid ${eur(after._max.amountMinor! + 1_000_000n)}` }),
+    ).toBeVisible({ timeout: 20_000 });
+  });
+
+  test("tells the outbid bidder, not the one who outbid them", async () => {
+    const queued = await prisma.outbox.findMany({
+      where: { userId: approvedId, template: "outbid" },
+    });
+    expect(queued.length).toBeGreaterThan(0);
+
+    expect(
+      await prisma.outbox.count({ where: { userId: rivalId, template: "outbid" } }),
+    ).toBe(0);
   });
 });
 

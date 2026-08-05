@@ -12,6 +12,7 @@ import { getLotPack, resolveViewer } from "@/server/documents/lot-documents";
 import { LegalPack } from "@/components/legal-pack";
 import { ViewingsSection } from "@/components/viewings-section";
 import { BidPanel } from "@/components/bid-panel";
+import { LiveLot } from "@/components/live-lot";
 import { getBiddingView } from "@/server/auction/bidding-view";
 import { listPublicSlots } from "@/server/viewings/bookings";
 import { formatDateTime } from "@/lib/datetime";
@@ -109,6 +110,22 @@ export default async function LotDetailPage({ params }: Params) {
             </section>
 
             <BidPanel view={bidding} locale={locale} slug={slug} lotId={lot.id} />
+
+            {/*
+              Renders nothing. Watches the lot for a bid landing and
+              refetches this page's server components when one does, so
+              price, count, countdown and the bid button all move
+              together rather than drifting apart.
+            */}
+            <LiveLot
+              lotId={lot.id}
+              initial={{
+                status: bidding.status,
+                bidCount: bidding.bidCount,
+                currentMinor: bidding.currentMinor,
+                closeAtIso: bidding.closeAtIso,
+              }}
+            />
 
             <LegalPack documents={pack} locale={locale} />
 

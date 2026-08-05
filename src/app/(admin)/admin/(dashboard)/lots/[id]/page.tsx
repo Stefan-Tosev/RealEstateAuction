@@ -5,6 +5,10 @@ import { allowedTransitions, publishBlockers } from "@/server/catalogue/publish"
 import { requireAdmin, canPerform } from "@/server/identity/authz";
 import { LotControls } from "../lot-controls";
 import { LotForm, type LotFormValues } from "../lot-form";
+import { listLotDocuments } from "@/server/documents/admin";
+import { listSlotsForLot } from "@/server/viewings/bookings";
+import { DocumentManager } from "./document-manager";
+import { SlotManager } from "./slot-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +49,14 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
   if (!lot) notFound();
 
   const properties = await listPropertyOptions();
+  const documents = await listLotDocuments(lot.id);
+  const slots = await listSlotsForLot(lot.id);
+
+  const sofia = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Sofia",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 
   const blockers = publishBlockers({
     reserveAgreedBy: lot.reserveAgreedBy,
@@ -101,6 +113,37 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
         blockers={blockers.map((b) => b.message)}
         reserveAgreed={Boolean(lot.reserveAgreedBy)}
         canActAsAuctioneer={canPerform(actor.role, "lot.publish")}
+      />
+
+      <hr style={{ border: 0, borderTop: "1px solid var(--admin-border)", margin: "2rem 0" }} />
+
+      <DocumentManager
+        lotId={lot.id}
+        documents={documents.map((document) => ({
+          id: document.id,
+          kind: document.kind,
+          visibility: document.visibility,
+          filename: document.filename,
+          // bigint does not cross into a client component.
+          sizeBytes: Number(document.size),
+          uploadedBy: document.uploader.name,
+          uploadedAt: sofia.format(document.uploadedAt),
+        }))}
+      />
+
+      <hr style={{ border: 0, borderTop: "1px solid var(--admin-border)", margin: "2rem 0" }} />
+
+      <SlotManager
+        lotId={lot.id}
+        slots={slots.map((slot) => ({
+          id: slot.id,
+          startsAtFormatted: sofia.format(slot.startsAt),
+          durationMinutes: slot.durationMinutes,
+          capacity: slot.capacity,
+          booked: slot._count.bookings,
+          kind: slot.kind,
+          isPast: slot.startsAt.getTime() <= Date.now(),
+        }))}
       />
 
       <hr style={{ border: 0, borderTop: "1px solid var(--admin-border)", margin: "2rem 0" }} />

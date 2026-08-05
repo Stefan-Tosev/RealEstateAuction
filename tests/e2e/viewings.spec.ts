@@ -1,6 +1,8 @@
 import "dotenv/config";
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import { rm } from "node:fs/promises";
+import path from "node:path";
 
 /*
  * Viewings and the admin upload UI, end to end.
@@ -28,6 +30,18 @@ async function cleanup() {
   await prisma.lotDocument.deleteMany({ where: { lot: { property: { slug: SLUG } } } });
   await prisma.outbox.deleteMany({ where: { user: { email: { startsWith: PREFIX } } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } });
+
+  /*
+   * Deleting the rows directly bypasses removeLotDocument(), which is
+   * what removes the file — so the uploaded blobs have to go
+   * explicitly. Storage keys are prefixed with the lot id.
+   */
+  if (lotId) {
+    await rm(path.join(process.cwd(), "private", "documents", lotId), {
+      recursive: true,
+      force: true,
+    });
+  }
 }
 
 async function signInAsOperator(page: Page) {

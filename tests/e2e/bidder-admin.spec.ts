@@ -233,9 +233,44 @@ test.describe("the post-auction negotiation window", () => {
    * with a verified buyer and money already down was the one ending an
    * operator could do nothing about. This drives the screen that fixed it.
    */
+  const FIXTURE_LOT_NUMBER = 900_001;
   let negotiationLotId = "";
 
+  /*
+   * Removing this fixture is three tables in a particular order, so it
+   * lives in one function that both beforeAll and afterAll call. A run
+   * that fails partway otherwise leaves the lot behind, and the next run
+   * dies on the lot_number unique constraint rather than on whatever
+   * actually broke.
+   */
+  async function removeFixtureLot() {
+    const existing = await prisma.lot.findMany({
+      where: { lotNumber: FIXTURE_LOT_NUMBER },
+      select: { id: true },
+    });
+
+    for (const { id } of existing) {
+      await prisma.fee.deleteMany({ where: { lotId: id } });
+      await prisma.deposit.deleteMany({ where: { lotId: id } });
+      await prisma.auditLog.deleteMany({ where: { entityId: id } });
+
+      // winningBidId points at the bid, so it has to let go first — and
+      // bids are append-only by trigger, which only test data may bypass.
+      await prisma.lot.update({ where: { id }, data: { winningBidId: null } });
+      await prisma.$executeRawUnsafe("ALTER TABLE bids DISABLE TRIGGER bids_append_only");
+      try {
+        await prisma.bid.deleteMany({ where: { lotId: id } });
+      } finally {
+        await prisma.$executeRawUnsafe("ALTER TABLE bids ENABLE TRIGGER bids_append_only");
+      }
+
+      await prisma.lot.delete({ where: { id } });
+    }
+  }
+
   test.beforeAll(async () => {
+    await removeFixtureLot();
+
     // Its own lot: the shared one carries the deposit assertions above.
     const property = await prisma.property.findFirstOrThrow({
       where: { slug: "kashta-stariya-grad-plovdiv" },
@@ -245,7 +280,7 @@ test.describe("the post-auction negotiation window", () => {
     const lot = await prisma.lot.create({
       data: {
         propertyId: property.id,
-        lotNumber: 900_001,
+        lotNumber: FIXTURE_LOT_NUMBER,
         status: "RESERVE_NOT_MET",
         startingPriceMinor: 10_000_000n,
         reservePriceMinor: 20_000_000n,
@@ -291,20 +326,7 @@ test.describe("the post-auction negotiation window", () => {
   });
 
   test.afterAll(async () => {
-    await prisma.deposit.deleteMany({ where: { lotId: negotiationLotId } });
-    await prisma.auditLog.deleteMany({ where: { entityId: negotiationLotId } });
-
-    // winningBidId points at the bid, so it has to let go first — and
-    // bids are append-only by trigger, which only test data may bypass.
-    await prisma.lot.update({ where: { id: negotiationLotId }, data: { winningBidId: null } });
-    await prisma.$executeRawUnsafe("ALTER TABLE bids DISABLE TRIGGER bids_append_only");
-    try {
-      await prisma.bid.deleteMany({ where: { lotId: negotiationLotId } });
-    } finally {
-      await prisma.$executeRawUnsafe("ALTER TABLE bids ENABLE TRIGGER bids_append_only");
-    }
-
-    await prisma.lot.deleteMany({ where: { id: negotiationLotId } });
+    await removeFixtureLot();
   });
 
   test("shows the gap the seller has to be talked across", async ({ page }) => {

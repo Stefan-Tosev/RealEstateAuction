@@ -2,6 +2,7 @@ import { recordAudit } from "@/server/audit/record";
 import type { AdminActor } from "@/server/identity/authz";
 import { prisma } from "@/lib/prisma";
 import { enqueue } from "@/server/notifications/outbox";
+import { raiseSaleFees } from "@/server/fees/raise";
 
 /*
  * The post-auction negotiation window — §10.
@@ -44,6 +45,13 @@ export async function acceptTopBid(
   });
 
   if (lot.winningBid) {
+    /*
+     * Charged on the hammer price, which here is below the reserve. The
+     * seller agreed to sell at this number; billing them a commission on
+     * the reserve would be a fee on a price nobody paid.
+     */
+    await raiseSaleFees(lotId, lot.winningBid.amountMinor, lot.winningBid.userId);
+
     await enqueue({
       userId: lot.winningBid.userId,
       channel: "email",

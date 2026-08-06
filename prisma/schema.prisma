@@ -206,6 +206,7 @@ model User {
   deposits        Deposit[]
   outboxEntries   Outbox[]
   verificationTokens EmailVerificationToken[]
+  fees               Fee[]
   consents        Consent[]
 
   @@map("users")
@@ -594,18 +595,45 @@ model Outbox {
 }
 
 // §10 commercial model: entry/commission/premium/withdrawal fees.
+// What the auction house is owed on a lot (§10).
+//
+// Net and ДДС are stored separately, never as one blended amount. A
+// Bulgarian invoice has to show base and ДДС as two lines, the statutory
+// rate changes, and a business below the registration threshold charges
+// none at all — a row carrying only "3.6%" cannot reconstruct any of
+// that afterwards. The money the house keeps is netMinor; vatMinor is
+// collected for НАП and passes straight through.
 model Fee {
-  id          String    @id @default(uuid()) @db.Uuid
-  lotId       String    @map("lot_id") @db.Uuid
-  party       FeeParty
-  kind        FeeKind
-  amountMinor BigInt    @map("amount_minor")
-  basis       FeeBasis
-  rate        Decimal?  @db.Decimal(6, 4)
-  status      FeeStatus @default(due)
-  chargedAt   DateTime? @map("charged_at") @db.Timestamptz(6)
+  id        String    @id @default(uuid()) @db.Uuid
+  lotId     String    @map("lot_id") @db.Uuid
+  party     FeeParty
+  kind      FeeKind
+  // Who owes it, where we have a record. Null for seller fees until
+  // sellers are modelled — the lot identifies the property either way.
+  userId    String?   @map("user_id") @db.Uuid
 
-  lot Lot @relation(fields: [lotId], references: [id])
+  netMinor  BigInt    @map("net_minor")
+  vatMinor  BigInt    @map("vat_minor")
+  // Both rates recorded as applied, so a historical fee still reconciles
+  // after either one moves. Kept out of runtime arithmetic: the money
+  // module works in integers and writes the result here.
+  vatRate   Decimal?  @map("vat_rate") @db.Decimal(6, 4)
 
+  basis     FeeBasis
+  rate      Decimal?  @db.Decimal(6, 4)
+  // What a percentage was taken of — the hammer price. Null for fixed.
+  baseMinor BigInt?   @map("base_minor")
+
+  status    FeeStatus @default(due)
+  chargedAt DateTime? @map("charged_at") @db.Timestamptz(6)
+  note      String?
+
+  lot  Lot   @relation(fields: [lotId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
+
+  // One fee of each kind per party per lot. Raising a second commission
+  // because a close ran twice is a billing error, not a retry.
+  @@unique([lotId, party, kind])
+  @@index([status, chargedAt])
   @@map("fees")
 }

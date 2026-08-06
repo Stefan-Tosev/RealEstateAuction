@@ -13,6 +13,8 @@ import { DepositManager } from "./deposit-manager";
 import { DocumentManager } from "./document-manager";
 import { SlotManager } from "./slot-manager";
 import { NegotiationPanel, NegotiationOutcomeNote } from "../negotiation-panel";
+import { listFeesForLot } from "@/server/fees/raise";
+import { FeeSummary } from "../fee-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +61,7 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
   // Only approved bidders without a deposit on this lot — the ones an
   // operator could actually be recording money for.
   const bidderOptions = await bidderOptionsForLot(lot.id);
+  const fees = await listFeesForLot(lot.id);
 
   /*
    * Read only for RESERVE_NOT_MET. winningBidId is set at close for both
@@ -171,6 +174,31 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
           />
         </>
       ) : null}
+
+      <hr style={{ border: 0, borderTop: "1px solid var(--admin-border)", margin: "2rem 0" }} />
+
+      <FeeSummary
+        fees={fees.map((fee) => ({
+          id: fee.id,
+          party: fee.party,
+          kind: fee.kind,
+          // bigint does not cross into a client component.
+          netFormatted: formatMoney(fee.netMinor, "en"),
+          vatFormatted: formatMoney(fee.vatMinor, "en"),
+          grossFormatted: formatMoney(fee.grossMinor, "en"),
+          rate: fee.rate,
+          status: fee.status,
+          chargedAt: fee.chargedAt ? sofia.format(fee.chargedAt) : null,
+        }))}
+        netTotalFormatted={formatMoney(
+          fees.reduce((total, fee) => total + fee.netMinor, 0n),
+          "en",
+        )}
+        vatTotalFormatted={formatMoney(
+          fees.reduce((total, fee) => total + fee.vatMinor, 0n),
+          "en",
+        )}
+      />
 
       <hr style={{ border: 0, borderTop: "1px solid var(--admin-border)", margin: "2rem 0" }} />
 

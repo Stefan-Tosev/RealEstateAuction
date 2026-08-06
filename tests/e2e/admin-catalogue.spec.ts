@@ -40,6 +40,9 @@ async function cleanup() {
   await prisma.auditLog.deleteMany({
     where: { entityId: { in: (await lotAndPropertyIds()).all } },
   });
+  // Fees hold a restrictive foreign key to the lot on purpose: a billing
+  // record must not vanish silently with whatever it was raised against.
+  await prisma.fee.deleteMany({ where: { lot: { property: { slug: SLUG } } } });
   await prisma.lot.deleteMany({ where: { property: { slug: SLUG } } });
   await prisma.propertyImage.deleteMany({ where: { property: { slug: SLUG } } });
   await prisma.property.deleteMany({ where: { slug: SLUG } });

@@ -359,12 +359,24 @@ Phase 1 is deliberately independently valuable. If you learn nobody wants this, 
 
 ### Fee structure
 
-| Fee | Paid by | When | Typical (EU property) |
-|---|---|---|---|
-| **Entry / marketing fee** | Seller | Upfront, **non-refundable** | €200–800 |
-| Seller's commission | Seller | Only on sale | 1.5–3% of hammer |
-| Buyer's premium | Buyer | Only on sale | 2–5% of hammer, often with a floor |
-| Withdrawal fee | Seller | If pulled after publication | Entry fee + fixed sum |
+| Fee | Paid by | When | Typical (EU property) | Bulgaria |
+|---|---|---|---|---|
+| **Entry / marketing fee** | Seller | Upfront, **non-refundable** | €200–800 | open |
+| Seller's commission | Seller | Only on sale | 1.5–3% of hammer | **3% + ДДС = 3.6%** |
+| Buyer's premium | Buyer | Only on sale | 2–5% of hammer, often with a floor | open |
+| Withdrawal fee | Seller | If pulled after publication | Entry fee + fixed sum | open |
+
+**Bulgarian agency convention is 3% + 20% ДДС, quoted as 3.6%** — above the generic EU range above, and the number sellers will already expect. Note that the market quotes the *gross*; the system must not.
+
+### VAT is not revenue, and must not be stored as if it were
+
+Every fee here is a service subject to ДДС. That has three consequences the schema has to respect:
+
+1. **Store net, with the rate alongside.** A fee row carrying a blended 3.6% cannot produce a compliant invoice, which has to show base and ДДС separately. `3%` and `20%` are two facts, not one.
+2. **The rate is data, not a constant.** It changes by statute, and a business below the registration threshold charges no ДДС at all — so a fee raised before registration and one raised after must both stay correct in the ledger.
+3. **Rounding needs one owner.** 3% of €345,000 is €10,350.00 net and €2,070.00 ДДС; awkward hammer prices will not divide so kindly. One function rounds, the same way `src/lib/money.ts` is the only thing that formats.
+
+The money the auction house keeps is the net. The ДДС is collected on behalf of НАП and passes straight through, so any revenue figure computed off gross is wrong.
 
 The entry fee is what protects you when a lot fails to sell. It covers costs you incur regardless of outcome — legal pack, photography, listing, staffing viewings — and it is defensible precisely because it is disclosed and charged **before** the lot goes live, not levied as a penalty afterwards.
 
@@ -391,7 +403,9 @@ When the highest bid falls below reserve, the lot enters `RESERVE_NOT_MET` for a
 
 A meaningful share of unsold lots close this way. An unmet reserve is not a failure to be penalised — it is a warm lead with a known price and an already-verified buyer. Build it as real functionality, not an afterthought.
 
-**`fees`** — `id`, `lot_id`, `party` (`seller|buyer`), `kind` (`entry|commission|premium|withdrawal`), `amount_minor`, `basis` (`fixed|percent`), `rate`, `status` (`due|invoiced|paid|waived`), `charged_at`
+**`fees`** — `id`, `lot_id`, `party` (`seller|buyer`), `kind` (`entry|commission|premium|withdrawal`), `net_minor`, `vat_rate`, `vat_minor`, `basis` (`fixed|percent`), `rate`, `status` (`due|invoiced|paid|waived`), `charged_at`
+
+(`net_minor` + `vat_minor` rather than one `amount_minor`: see above. Both are stored rather than one derived, so a historical row still reconciles after the rate changes.)
 
 ---
 

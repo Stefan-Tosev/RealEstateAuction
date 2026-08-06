@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { enqueue } from "@/server/notifications/outbox";
+import { raiseSaleFees } from "@/server/fees/raise";
 
 /*
  * Closing lots whose clock has run out — §3, "Closing a lot".
@@ -156,6 +157,16 @@ export async function closeLot(lotId: string): Promise<CloseOutcome> {
         },
         tx,
       );
+    }
+
+    /*
+     * Commission and premium on the hammer price — what was actually
+     * bid, not the reserve. Only on a sale: a lot going into the
+     * negotiation window has not sold yet, and its fees are raised if
+     * and when the seller accepts.
+     */
+    if (metReserve) {
+      await raiseSaleFees(lotId, highest.amountMinor, highest.userId, tx);
     }
 
     await enqueue(

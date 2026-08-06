@@ -106,6 +106,7 @@ async function cleanup() {
   await prisma.outbox.deleteMany({ where: { user: { email: { startsWith: PREFIX } } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } });
   // Lots created here hang off the seeded property; winningBidId must go first.
+  await prisma.fee.deleteMany({ where: { lot: { property: { slug: PREFIX + "prop" } } } });
   await prisma.lot.updateMany({ where: { property: { slug: PREFIX + "prop" } }, data: { winningBidId: null } });
   await prisma.$executeRawUnsafe("ALTER TABLE bids DISABLE TRIGGER bids_append_only");
   try {
@@ -744,6 +745,97 @@ describe("closing a lot (§3)", () => {
 
     const queued = await prisma.outbox.findMany({ where: { userId: bidders[0] } });
     expect(queued.map((o) => o.template)).toContain("lot_won");
+  });
+});
+
+describe("fees fall due at the right moments (§10)", () => {
+  it("raises commission and premium on the hammer price when a lot sells", async () => {
+    const lot = await makeLot({
+      closesInSeconds: 3600,
+      startingPriceMinor: 10_000_000n,
+      reservePriceMinor: 10_000_000n,
+    });
+    await placeBid({ lotId: lot, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+    await prisma.lot.update({
+      where: { id: lot },
+      data: { effectiveCloseAt: new Date(Date.now() - 1000) },
+    });
+    await closeLot(lot);
+
+    const fees = await prisma.fee.findMany({ where: { lotId: lot }, orderBy: { kind: "asc" } });
+    expect(fees.map((f) => `${f.party}.${f.kind}`).sort()).toEqual([
+      "buyer.premium",
+      "seller.commission",
+    ]);
+
+    // 2.5% of €100,000, plus ДДС on the commission rather than on the sale.
+    for (const fee of fees) {
+      expect(fee.netMinor).toBe(250_000n);
+      expect(fee.vatMinor).toBe(50_000n);
+      expect(fee.baseMinor).toBe(10_000_000n);
+    }
+
+    // The premium is owed by a person we can name; the seller is not
+    // modelled yet, so their row carries the lot alone.
+    const premium = fees.find((f) => f.kind === "premium")!;
+    expect(premium.userId).toBe(bidders[0]);
+    expect(fees.find((f) => f.kind === "commission")!.userId).toBeNull();
+  });
+
+  it("raises nothing while a lot is only in the negotiation window", async () => {
+    /*
+     * RESERVE_NOT_MET is not a sale. Billing a commission there would
+     * charge a seller for a transaction that may never happen.
+     */
+    const lot = await makeLot({
+      closesInSeconds: 3600,
+      startingPriceMinor: 10_000_000n,
+      reservePriceMinor: 20_000_000n,
+    });
+    await placeBid({ lotId: lot, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+    await prisma.lot.update({
+      where: { id: lot },
+      data: { effectiveCloseAt: new Date(Date.now() - 1000) },
+    });
+    await closeLot(lot);
+
+    expect(await prisma.fee.count({ where: { lotId: lot } })).toBe(0);
+
+    // ...and raises them on the amount actually agreed once it sells,
+    // which is below the reserve.
+    await acceptTopBid(ADMIN_ACTOR, lot, null);
+
+    const commission = await prisma.fee.findFirstOrThrow({
+      where: { lotId: lot, kind: "commission" },
+    });
+    expect(commission.baseMinor).toBe(10_000_000n);
+    expect(commission.netMinor).toBe(250_000n);
+  });
+
+  it("does not raise a second commission when a close runs twice", async () => {
+    /*
+     * Idempotent by unique constraint rather than by checking first. Two
+     * workers racing, or a retry, must not bill the seller twice.
+     */
+    const lot = await makeLot({
+      closesInSeconds: 3600,
+      startingPriceMinor: 10_000_000n,
+      reservePriceMinor: 10_000_000n,
+    });
+    await placeBid({ lotId: lot, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+    await prisma.lot.update({
+      where: { id: lot },
+      data: { effectiveCloseAt: new Date(Date.now() - 1000) },
+    });
+
+    await closeLot(lot);
+    await prisma.lot.update({
+      where: { id: lot },
+      data: { status: "BIDDING_OPEN", effectiveCloseAt: new Date(Date.now() - 1000) },
+    });
+    await closeLot(lot);
+
+    expect(await prisma.fee.count({ where: { lotId: lot, kind: "commission" } })).toBe(1);
   });
 });
 

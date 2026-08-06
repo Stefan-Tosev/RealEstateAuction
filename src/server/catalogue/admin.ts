@@ -1,6 +1,7 @@
 import type { LotStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/server/audit/record";
+import { raiseEntryFee, raiseWithdrawalFee } from "@/server/fees/raise";
 import type { AdminActor } from "@/server/identity/authz";
 import { mediaStorage } from "@/server/storage";
 import type { LotInput, PropertyInput } from "./schemas";
@@ -316,6 +317,22 @@ export async function changeLotStatus(actor: AdminActor, lotId: string, to: LotS
       closedAt: to === "CANCELLED" ? new Date() : lot.closedAt,
     },
   });
+
+  /*
+   * §10's fees, at the moments they fall due.
+   *
+   * The entry fee is charged at publish and not at close, deliberately:
+   * its whole defence is that it is "disclosed and charged BEFORE the
+   * lot goes live, not levied as a penalty afterwards".
+   *
+   * Withdrawal is charged only when a PUBLISHED lot is pulled. A lot
+   * cancelled while still a draft cost nobody anything.
+   */
+  if (to === "PUBLISHED") {
+    await raiseEntryFee(lotId);
+  } else if (to === "CANCELLED" && lot.status !== "DRAFT") {
+    await raiseWithdrawalFee(lotId);
+  }
 
   await recordAudit({
     actorId: actor.id,

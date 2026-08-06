@@ -14,22 +14,7 @@ rots into a list of tasks nobody can prioritise.
 These are the ones that make the difference between a working demo and
 something you can put real property and real money through.
 
-### 1.1 The buyer's premium is charged but never disclosed
-
-**Status: verified absent.** The word "premium" appears nowhere in any
-public page or in either dictionary. `raiseSaleFees` raises a 3% gross
-charge against the winning bidder, and nothing on the site tells them it
-exists before they bid.
-
-This is the most serious open item on the list. A buyer's premium is
-normal in an auction and indefensible as a surprise — and Bulgarian
-buyers have not met the model before, so the assumption that "everyone
-knows" does not hold. Charging a fee a bidder was never shown is a
-consumer-protection problem in the EU before it is a trust problem.
-
-It has to appear next to every price a bidder sees: the lot card, the lot
-page, and the bid button itself. "Bid €350,000 (+3% premium = €360,500)"
-is the honest shape.
+*(1.1, the undisclosed buyer's premium, was closed on 2026-08-06.)*
 
 ### 1.2 The three legal documents
 

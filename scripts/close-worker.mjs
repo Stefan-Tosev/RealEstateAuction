@@ -1,8 +1,8 @@
 import "dotenv/config";
 
 /*
- * Drives the closing endpoint on an interval — §3 asks for "a worker
- * every few seconds".
+ * Drives the two scheduler endpoints on an interval — closing lots (§3
+ * asks for "a worker every few seconds") and draining the outbox.
  *
  * Deliberately dumb: it holds no state, makes no decisions, and can be
  * killed and restarted at any moment. All the logic lives behind the
@@ -36,34 +36,46 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
   });
 }
 
+async function call(path) {
+  const response = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${SECRET}` },
+  });
+
+  if (!response.ok) {
+    console.error(`${path} returned ${response.status}`);
+    return null;
+  }
+
+  return response.json();
+}
+
 async function tick() {
   try {
-    const response = await fetch(`${BASE}/api/internal/close-lots`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${SECRET}` },
-    });
+    const closed = await call("/api/internal/close-lots");
+    const mail = await call("/api/internal/send-outbox");
 
-    if (!response.ok) {
-      console.error(`close-lots returned ${response.status}`);
-      return;
-    }
-
-    const result = await response.json();
     // Quiet unless something happened — a worker that logs every few
     // seconds trains you to ignore it.
-    if (result.outcomes.length > 0) {
-      console.log(
-        new Date().toISOString(),
-        `closed=${result.closed} reserveNotMet=${result.reserveNotMet} extended=${result.extended}`,
+    const lines = [];
+    if (closed && closed.outcomes.length > 0) {
+      lines.push(
+        `closed=${closed.closed} reserveNotMet=${closed.reserveNotMet} extended=${closed.extended}`,
       );
     }
+    if (mail && (mail.sent || mail.retry || mail.abandoned || mail.unknownTemplate)) {
+      lines.push(
+        `mail sent=${mail.sent} retry=${mail.retry} abandoned=${mail.abandoned} unknownTemplate=${mail.unknownTemplate}`,
+      );
+    }
+    if (lines.length > 0) console.log(new Date().toISOString(), lines.join(" | "));
   } catch (error) {
     // A missing server is the ordinary case in development. Keep going.
-    console.error("close-lots call failed:", error.message);
+    console.error("worker pass failed:", error.message);
   }
 }
 
-console.log(`Closing worker: ${BASE} every ${INTERVAL_MS}ms. Ctrl-C to stop.`);
+console.log(`Worker: ${BASE} every ${INTERVAL_MS}ms — closing lots and sending mail. Ctrl-C to stop.`);
 
 while (!stopping) {
   await tick();

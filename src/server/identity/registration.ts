@@ -1,7 +1,6 @@
 import type { AccountType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { enqueue } from "@/server/notifications/outbox";
-import { transport } from "@/server/notifications/transport";
 import { hashPassword } from "./password";
 import { checkPassword, normalisePassword, type PasswordCode } from "./password-policy";
 import {
@@ -256,12 +255,6 @@ export async function register(
       template: "registration_attempt_existing_account",
       payload: { signInUrl: `${context.baseUrl}/${value.locale}/sign-in` },
     });
-    await transport.send({
-      to: value.email,
-      template: "registration_attempt_existing_account",
-      payload: { note: "Someone tried to register with this address. Sign in or reset instead." },
-    });
-
     await padTo(startedAt);
     return { status: "pending_verification" };
   }
@@ -324,18 +317,22 @@ export async function register(
   const token = await issueVerificationToken(user.id);
   const verifyUrl = `${context.baseUrl}/${value.locale}/verify?token=${token}`;
 
+  /*
+   * Queued, not sent here. Registration used to do both — enqueue for the
+   * record and send directly for the speed — which was harmless only
+   * because nothing drained the outbox. Now that something does, sending
+   * here too would deliver every verification email twice.
+   *
+   * It also helps §5: the send is off the request path entirely, so the
+   * existing and new address branches do the same work as well as taking
+   * the same time.
+   */
   await enqueue({
     userId: user.id,
     channel: "email",
     template: "verify_email",
     payload: { verifyUrl },
   });
-  await transport.send({
-    to: value.email,
-    template: "verify_email",
-    payload: { verifyUrl },
-  });
-
   await padTo(startedAt);
   return { status: "pending_verification" };
 }

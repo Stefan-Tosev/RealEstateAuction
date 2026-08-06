@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addVat, fixedFee, percentFee } from "@/server/fees/calculate";
+import { premiumOn, premiumRateLabel } from "@/server/fees/disclosure";
+import { formatMoney } from "@/lib/money";
 import {
   BUYER_PREMIUM_BPS,
   ENTRY_FEE_NET_MINOR,
@@ -118,5 +120,45 @@ describe("the schedule", () => {
   it("records rates in a form an invoice can quote", () => {
     expect(bpsToRate(SELLER_COMMISSION_BPS)).toBe("0.0250");
     expect(bpsToRate(VAT_RATE_BPS)).toBe("0.2000");
+  });
+});
+
+describe("what the bidder is told", () => {
+  /*
+   * The premium was billed before this existed and disclosed nowhere —
+   * the word did not appear on a single public page. Charging a fee
+   * somebody was never shown is a consumer-protection problem before it
+   * is a trust problem, and these assertions are what stop it silently
+   * disappearing again.
+   */
+  it("quotes the GROSS rate, because that is what leaves the buyer's account", () => {
+    // 2.5% net is what the house keeps; 3% is what the buyer pays.
+    expect(premiumRateLabel()).toBe("3%");
+  });
+
+  it("spells out the premium and the real total, not just a percentage", () => {
+    const disclosed = premiumOn(eur(350_000), "en");
+
+    expect(disclosed.amountFormatted).toBe("€10,500");
+    expect(disclosed.totalFormatted).toBe("€360,500");
+  });
+
+  it("agrees exactly with what raiseSaleFees will bill", () => {
+    /*
+     * The disclosure and the invoice are derived from the same
+     * constants. A disclosure computed from its own copy of the rate is
+     * one that eventually tells a buyer the wrong number.
+     */
+    const hammer = eur(345_000);
+    const billed = percentFee(hammer, BUYER_PREMIUM_BPS, VAT_RATE_BPS);
+    const disclosed = premiumOn(hammer, "en");
+
+    expect(disclosed.amountFormatted).toBe(formatMoney(billed.grossMinor, "en"));
+    expect(disclosed.totalFormatted).toBe(formatMoney(hammer + billed.grossMinor, "en"));
+  });
+
+  it("says it in Bulgarian too", () => {
+    // formatMoney drops the decimals on a round amount by design.
+    expect(premiumOn(eur(350_000), "bg").amountFormatted).toBe("10 500 €");
   });
 });

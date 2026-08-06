@@ -14,6 +14,7 @@ import { ViewingsSection } from "@/components/viewings-section";
 import { BidPanel } from "@/components/bid-panel";
 import { LiveLot } from "@/components/live-lot";
 import { getBiddingView } from "@/server/auction/bidding-view";
+import { premiumRateLabel } from "@/server/fees/disclosure";
 import { listPublicSlots } from "@/server/viewings/bookings";
 import { formatDateTime } from "@/lib/datetime";
 
@@ -151,6 +152,13 @@ export default async function LotDetailPage({ params }: Params) {
                     {lot.priceLabel === "openingBid" ? t.lot.openingBid : t.lot.currentBid}
                   </span>
                   <span className="price-panel-value">{lot.priceFormatted}</span>
+                  {/*
+                    Beside the headline figure, because this is the number
+                    people quote to themselves and it is not what they pay.
+                  */}
+                  <span className="price-panel-premium">
+                    {t.bidding.premiumShort.replace("{rate}", premiumRateLabel())}
+                  </span>
                 </div>
 
                 {phase.kind === "preview" || phase.kind === "bidding" ? (
@@ -190,6 +198,11 @@ export default async function LotDetailPage({ params }: Params) {
                   : phase.kind === "closed"
                     ? t.detail.biddingClosedNote
                     : t.detail.biddingOpenNote}
+              </p>
+
+              {/* Said in full at least once on the page, not only as a rate. */}
+              <p className="bid-increment-note">
+                {t.bidding.premiumExplained.replace("{rate}", premiumRateLabel())}
               </p>
 
               <dl className="key-dates">

@@ -30,6 +30,7 @@ export function BidForm({
   amountMinor,
   amountFormatted,
   attempt,
+  premiumNote,
   labels,
 }: {
   locale: Locale;
@@ -42,6 +43,8 @@ export function BidForm({
    * why the key cannot be `useId()` alone.
    */
   attempt: string;
+  /** What the buyer pays on top, already worked out. */
+  premiumNote: string;
   labels: Record<string, string>;
 }) {
   const action = placeBidAction.bind(null, locale, slug, lotId);
@@ -82,6 +85,13 @@ export function BidForm({
         {pending ? labels.placing : labels.place.replace("{amount}", amountFormatted)}
       </button>
       <span className="field-hint">{labels.stepHint.replace("{amount}", amountFormatted)}</span>
+
+      {/*
+        Directly under the button that commits them, and spelled out in
+        money rather than as a percentage. A premium disclosed only in
+        the terms is a premium nobody read.
+      */}
+      <p className="bid-premium-note">{premiumNote}</p>
     </form>
   );
 }

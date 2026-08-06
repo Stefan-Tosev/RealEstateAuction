@@ -5,6 +5,7 @@ import { interpolate, plural } from "@/lib/i18n/plural";
 import { formatDateTime } from "@/lib/datetime";
 import { formatMoney } from "@/lib/money";
 import type { BiddingView } from "@/server/auction/bidding-view";
+import { premiumOn, premiumRateLabel } from "@/server/fees/disclosure";
 import { BidForm } from "./bid-form";
 
 /*
@@ -46,6 +47,15 @@ export function BidPanel({
           <span className="lot-price-label">{currentLabel}</span>
           <span className="bid-current">{currentValue}</span>
         </div>
+        <div className="bid-premium">
+          {/*
+            Next to the price, not buried in the terms. The buyer pays
+            this on top of whatever they bid, and it was disclosed
+            nowhere before — see server/fees/disclosure.ts.
+          */}
+          {t.bidding.premiumShort.replace("{rate}", premiumRateLabel())}
+        </div>
+
         <div className="bid-count">
           {view.bidCount === 0
             ? t.bidding.noBids
@@ -71,6 +81,15 @@ export function BidPanel({
              * while a genuine follow-up bid is not.
              */
             attempt={`${view.bidCount}:${view.currentMinor ?? "0"}`}
+            premiumNote={(() => {
+              // The sum spelled out, so nobody has to do the arithmetic
+              // to find out what pressing the button costs them.
+              const premium = premiumOn(view.minimumMinor, locale);
+              return t.bidding.premiumOnBid
+                .replace("{amount}", premium.amountFormatted)
+                .replace("{rate}", premium.rateLabel)
+                .replace("{total}", premium.totalFormatted);
+            })()}
             labels={{
               // bidCount is plural forms rather than a string, and the
               // form has no use for it.

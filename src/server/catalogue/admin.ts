@@ -290,7 +290,12 @@ export class TransitionRefused extends Error {
 export async function changeLotStatus(actor: AdminActor, lotId: string, to: LotStatus) {
   const lot = await prisma.lot.findUniqueOrThrow({
     where: { id: lotId },
-    include: { property: { select: { _count: { select: { images: true } } } } },
+    include: {
+      property: { select: { _count: { select: { images: true } } } },
+      // Kinds only. The publish gate checks that a document is present,
+      // never what it says — see publish.ts on why that line matters.
+      documents: { select: { kind: true } },
+    },
   });
 
   if (!canTransition(lot.status, to)) {
@@ -304,6 +309,7 @@ export async function changeLotStatus(actor: AdminActor, lotId: string, to: LotS
       previewStartsAt: lot.previewStartsAt,
       biddingOpensAt: lot.biddingOpensAt,
       scheduledCloseAt: lot.scheduledCloseAt,
+      documentKinds: lot.documents.map((document) => document.kind),
     });
     if (blockers.length > 0) {
       throw new TransitionRefused(blockers.map((b) => b.message));

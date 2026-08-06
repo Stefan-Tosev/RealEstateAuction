@@ -36,10 +36,34 @@ async function signInAsAuctioneer(page: Page) {
   await signIn(page, process.env.ADMIN_EMAIL!, process.env.ADMIN_PASSWORD!);
 }
 
+/** Enough of a PDF for the magic-byte sniff to accept it. */
+const LEGAL_PACK_PDF = Buffer.concat([
+  Buffer.from("%PDF-1.7\n"),
+  Buffer.from("admin-catalogue legal pack fixture\n"),
+]);
+
 async function cleanup() {
   await prisma.auditLog.deleteMany({
     where: { entityId: { in: (await lotAndPropertyIds()).all } },
   });
+
+  /*
+   * Documents before lots: the rows hold a foreign key, and the files
+   * they own live outside the database entirely. Deleting the row is not
+   * deleting the file — that has leaked twice in this repo.
+   */
+  const lotIds = (
+    await prisma.lot.findMany({ where: { property: { slug: SLUG } }, select: { id: true } })
+  ).map((lot) => lot.id);
+
+  await prisma.lotDocument.deleteMany({ where: { lotId: { in: lotIds } } });
+
+  for (const lotId of lotIds) {
+    await rm(path.join(process.cwd(), "private", "documents", lotId), {
+      recursive: true,
+      force: true,
+    });
+  }
   // Fees hold a restrictive foreign key to the lot on purpose: a billing
   // record must not vanish silently with whatever it was raised against.
   await prisma.fee.deleteMany({ where: { lot: { property: { slug: SLUG } } } });
@@ -302,7 +326,31 @@ test("an auctioneer can agree the reserve, set dates and publish", async ({ page
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page).toHaveURL(/\/admin\/lots$/);
 
+  /*
+   * The legal pack. A lot cannot be published without the two documents
+   * a bidder needs in order to decide — completeness only; nothing here
+   * or in the gate looks at what they say.
+   */
   await page.goto(`/admin/lots/${lot.id}`);
+  await expect(page.getByText(/legal pack is missing/i)).toBeVisible();
+
+  for (const [name, kind] of [
+    ["notarialen-akt.pdf", "title_deed"],
+    ["udostoverenie-tezhesti.pdf", "encumbrances"],
+  ] as const) {
+    await page.getByLabel("Add a document").setInputFiles({
+      name,
+      mimeType: "application/pdf",
+      buffer: LEGAL_PACK_PDF,
+    });
+    await page.getByLabel("Document type").selectOption(kind);
+    await page.getByRole("button", { name: /Upload document/i }).click();
+    await expect(page.getByText(name)).toBeVisible();
+  }
+
+  await page.goto(`/admin/lots/${lot.id}`);
+  await expect(page.getByText(/legal pack is missing/i)).toHaveCount(0);
+
   await page.getByRole("button", { name: "Publish" }).click();
 
   await expect(page.locator('.admin-chip[data-status="PUBLISHED"]').first()).toBeVisible();

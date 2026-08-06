@@ -21,6 +21,7 @@ export function LotControls({
   status,
   transitions,
   blockers,
+  warnings,
   reserveAgreed,
   canActAsAuctioneer,
 }: {
@@ -28,6 +29,8 @@ export function LotControls({
   status: LotStatus;
   transitions: LotStatus[];
   blockers: string[];
+  /** Worth saying, not worth stopping a publish over. */
+  warnings: string[];
   reserveAgreed: boolean;
   canActAsAuctioneer: boolean;
 }) {
@@ -67,6 +70,23 @@ export function LotControls({
             </span>
           ) : null}
         </form>
+      ) : null}
+
+      {warnings.length > 0 ? (
+        <div className="admin-notice">
+          {/*
+            Deliberately not a blocker. These documents matter for the
+            transfer rather than for the decision to bid, and holding up a
+            sale over paperwork that has until completion to arrive would
+            cost the seller without protecting the bidder.
+          */}
+          <strong>Worth chasing:</strong>
+          <ul className="admin-blockers">
+            {warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {blockers.length > 0 ? (

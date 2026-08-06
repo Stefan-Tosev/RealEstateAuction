@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLot, listPropertyOptions } from "@/server/catalogue/admin";
-import { allowedTransitions, publishBlockers } from "@/server/catalogue/publish";
+import { allowedTransitions, publishBlockers, publishWarnings } from "@/server/catalogue/publish";
 import { requireAdmin, canPerform } from "@/server/identity/authz";
 import { LotControls } from "../lot-controls";
 import { LotForm, type LotFormValues } from "../lot-form";
@@ -94,7 +94,11 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
     previewStartsAt: lot.previewStartsAt,
     biddingOpensAt: lot.biddingOpensAt,
     scheduledCloseAt: lot.scheduledCloseAt,
+    documentKinds: documents.map((document) => document.kind),
   });
+
+  // Advisory: the notary will want these, but not before the lot is live.
+  const warnings = publishWarnings({ documentKinds: documents.map((d) => d.kind) });
 
   const values: LotFormValues = {
     id: lot.id,
@@ -141,6 +145,7 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
         status={lot.status}
         transitions={allowedTransitions(lot.status)}
         blockers={blockers.map((b) => b.message)}
+        warnings={warnings.map((w) => w.message)}
         reserveAgreed={Boolean(lot.reserveAgreedBy)}
         canActAsAuctioneer={canPerform(actor.role, "lot.publish")}
       />

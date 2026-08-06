@@ -364,3 +364,41 @@
   outline: 2px solid var(--admin-royal);
   outline-offset: 1px;
 }
+
+/* ---------------------------------------------------
+   Listing copy drafter
+   Visibly a draft, never mistakable for saved content.
+--------------------------------------------------- */
+.admin-drafter {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px dashed var(--admin-border);
+  border-radius: 6px;
+}
+
+.admin-drafter textarea { width: 100%; }
+
+.admin-draft-result { margin-top: 1rem; }
+
+.admin-draft-locale {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-draft-locale h3 {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+  margin: 0 0 0.4rem;
+}
+
+.admin-draft-title { font-weight: 600; margin: 0 0 0.5rem; }
+
+.admin-draft-body {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0;
+}

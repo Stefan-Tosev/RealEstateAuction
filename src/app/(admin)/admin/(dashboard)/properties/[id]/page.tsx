@@ -5,6 +5,7 @@ import { requireAdmin } from "@/server/identity/authz";
 import { mediaStorage } from "@/server/storage";
 import { PropertyForm, type PropertyFormValues } from "../property-form";
 import { ImageManager } from "./image-manager";
+import { copyDraftingConfigured } from "@/server/copy/draft";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,7 @@ export default async function EditPropertyPage({
 
       <hr style={{ border: 0, borderTop: "1px solid var(--admin-border)", margin: "2rem 0" }} />
 
-      <PropertyForm property={values} />
+      <PropertyForm property={values} copyDraftingAvailable={copyDraftingConfigured()} />
     </div>
   );
 }

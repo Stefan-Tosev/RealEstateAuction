@@ -137,6 +137,26 @@ test("an operator can create a property", async ({ page }) => {
   await expect(page.getByText(TITLE_BG)).toBeVisible();
 });
 
+test("the copy drafter is offered, and says so when it is not configured", async ({ page }) => {
+  /*
+   * CI runs without ANTHROPIC_API_KEY, which is the state this asserts:
+   * the tool is visible, disabled, and explains itself rather than
+   * failing when pressed. Descriptions can always be written by hand.
+   */
+  await signInAsAuctioneer(page);
+  await page.goto("/admin/properties/new");
+
+  await expect(page.getByLabel("What is notable about this property?")).toBeVisible();
+
+  // The only facts a draft may use are the ones on this form.
+  await expect(page.getByText(/only facts the draft may use/i)).toBeVisible();
+
+  const button = page.getByRole("button", { name: "Draft descriptions" });
+  await expect(button).toBeVisible();
+  await expect(button).toBeDisabled();
+  await expect(page.getByText(/ANTHROPIC_API_KEY is unset/)).toBeVisible();
+});
+
 test("validation refuses a half-translated listing", async ({ page }) => {
   await signInAsAuctioneer(page);
   await page.goto("/admin/properties/new");

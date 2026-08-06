@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { savePropertyAction, type FormState } from "../../catalogue-actions";
 import { Field } from "../../_components/field";
+import { CopyDrafter } from "./copy-drafter";
 
 const PROPERTY_TYPES = ["apartment", "house", "land", "commercial", "other"] as const;
 
@@ -42,7 +43,13 @@ export type PropertyFormValues = {
  * and letting the browser block submission means the server rules never
  * get exercised.
  */
-export function PropertyForm({ property }: { property: PropertyFormValues | null }) {
+export function PropertyForm({
+  property,
+  copyDraftingAvailable,
+}: {
+  property: PropertyFormValues | null;
+  copyDraftingAvailable: boolean;
+}) {
   const action = savePropertyAction.bind(null, property?.id ?? null);
   const [state, formAction, isPending] = useActionState<FormState, FormData>(action, undefined);
 
@@ -102,6 +109,13 @@ export function PropertyForm({ property }: { property: PropertyFormValues | null
         <Field name="descriptionEn" label="Description (EN)" error={errors.descriptionEn}>
           {(props) => <textarea {...props} defaultValue={value("descriptionEn")} />}
         </Field>
+
+        {/*
+          Sits inside the same form so it can read the facts already
+          entered. It drafts; it never saves — a person has to have read
+          words published as the auction house's own.
+        */}
+        <CopyDrafter available={copyDraftingAvailable} />
       </fieldset>
 
       <fieldset className="admin-fieldset">

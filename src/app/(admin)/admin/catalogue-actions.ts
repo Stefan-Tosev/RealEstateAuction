@@ -36,6 +36,16 @@ import { prisma } from "@/lib/prisma";
 export type FormState = {
   errors?: Record<string, string>;
   message?: string;
+  /**
+   * What the operator submitted, echoed back so the form can re-fill
+   * itself.
+   *
+   * React 19 resets an uncontrolled form once its action completes. On a
+   * validation failure that means everything typed is gone — which on a
+   * form the length of a property listing is a genuinely bad afternoon.
+   * A form that reads these back survives its own error messages.
+   */
+  values?: Record<string, string>;
 } | undefined;
 
 /** Turn thrown authorization/validation failures into renderable state. */

@@ -18,6 +18,7 @@ function ready() {
     scheduledCloseAt: soon(27),
     // A complete pack. Completeness only — the check never looks inside.
     documentKinds: ["title_deed", "encumbrances"] as DocumentKind[],
+    sellerId: "seller-id",
   };
 }
 
@@ -78,12 +79,14 @@ describe("publishBlockers", () => {
       biddingOpensAt: null,
       scheduledCloseAt: null,
       documentKinds: [],
+      sellerId: null,
     });
     expect(blockers.map((b) => b.code).sort()).toEqual([
       "legal-pack-incomplete",
       "no-dates",
       "no-images",
       "no-reserve-agreed",
+      "no-seller",
     ]);
   });
 });
@@ -192,5 +195,22 @@ describe("the legal pack gate", () => {
         documentKinds: ["title_deed", "encumbrances", "sketch", "tax_valuation"],
       }),
     ).toEqual([]);
+  });
+});
+
+describe("the seller gate", () => {
+  it("refuses to publish a lot whose owner nobody recorded", () => {
+    /*
+     * A live lot with no seller has nobody to telephone when it closes
+     * below reserve, nobody to bill the commission to, and nobody to
+     * send the bid log. §11 keeps sourcing admin-curated, so somebody
+     * has to have entered the record.
+     */
+    const blockers = publishBlockers({ ...ready(), sellerId: null });
+    expect(blockers.map((b) => b.code)).toContain("no-seller");
+  });
+
+  it("publishes once the seller is attached", () => {
+    expect(publishBlockers({ ...ready(), sellerId: "a-seller" })).toEqual([]);
   });
 });

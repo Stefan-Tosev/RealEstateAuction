@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/server/identity/authz";
 import { PropertyForm } from "../property-form";
 import { copyDraftingConfigured } from "@/server/copy/draft";
+import { sellerOptions } from "@/server/sellers/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,9 @@ export default async function NewPropertyPage() {
         </div>
       </div>
 
-      <PropertyForm property={null} copyDraftingAvailable={copyDraftingConfigured()} />
+      <PropertyForm property={null} copyDraftingAvailable={copyDraftingConfigured()}
+        sellers={await sellerOptions()}
+      />
     </div>
   );
 }

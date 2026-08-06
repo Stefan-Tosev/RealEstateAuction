@@ -15,7 +15,8 @@ export type PublishBlocker = {
     | "no-images"
     | "no-dates"
     | "bad-date-order"
-    | "legal-pack-incomplete";
+    | "legal-pack-incomplete"
+    | "no-seller";
   message: string;
 };
 
@@ -65,6 +66,7 @@ type PublishCandidate = {
   biddingOpensAt: Date | null;
   scheduledCloseAt: Date | null;
   documentKinds: DocumentKind[];
+  sellerId: string | null;
 };
 
 /**
@@ -95,6 +97,19 @@ export function publishBlockers(lot: PublishCandidate): PublishBlocker[] {
     blockers.push({
       code: "no-images",
       message: "Add at least one photograph of the property.",
+    });
+  }
+
+  /*
+   * Nobody to telephone when the lot closes below reserve, nobody to bill
+   * the commission to, and nobody to send the bid log. §11 keeps sourcing
+   * admin-curated, so this is a record somebody has to have entered — and
+   * a live lot whose owner is unknown is not a listing, it is a gap.
+   */
+  if (!lot.sellerId) {
+    blockers.push({
+      code: "no-seller",
+      message: "Attach the seller before publishing. A live lot needs an owner to contact and bill.",
     });
   }
 

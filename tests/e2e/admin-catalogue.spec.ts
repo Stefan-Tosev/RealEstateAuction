@@ -22,6 +22,7 @@ const SLUG = "e2e-admin-created-property";
 const TITLE_BG = "Тестов имот от админ панела";
 const TITLE_EN = "Test property from the admin";
 const STAFF_EMAIL = "e2e-staff@auctionhouse.test";
+const SELLER_NAME = "E2E Продавач ООД";
 const STAFF_PASSWORD = "e2e-staff-password-9f3c1a";
 
 async function signIn(page: Page, email: string, password: string) {
@@ -71,6 +72,8 @@ async function cleanup() {
   await prisma.propertyImage.deleteMany({ where: { property: { slug: SLUG } } });
   await prisma.property.deleteMany({ where: { slug: SLUG } });
   await prisma.adminUser.deleteMany({ where: { email: STAFF_EMAIL } });
+  // After the properties that point at it, and after the fees.
+  await prisma.seller.deleteMany({ where: { name: SELLER_NAME } });
 
   /*
    * Deleting the rows directly bypasses deletePropertyImage(), which is
@@ -135,6 +138,46 @@ test("an operator can create a property", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/admin\/properties$/);
   await expect(page.getByText(TITLE_BG)).toBeVisible();
+});
+
+test("a lot cannot be published until somebody owns the property", async ({ page }) => {
+  /*
+   * A live lot with no seller has nobody to telephone when it closes
+   * below reserve, nobody to bill the commission to, and nobody to send
+   * the bid log. §11 keeps sourcing admin-curated, so the record has to
+   * be entered by an operator.
+   */
+  await signInAsAuctioneer(page);
+
+  await page.goto("/admin/sellers");
+  await expect(page.getByText(/Never shown in the public catalogue/i)).toBeVisible();
+
+  await page.goto("/admin/sellers/new");
+  await page.getByLabel("Seller is").selectOption("company");
+  await page.getByLabel("Registered name").fill(SELLER_NAME);
+  await page.getByLabel("Email").fill("seller@example.bg");
+  await page.getByLabel("Telephone").fill("+359888123456");
+
+  // A company is invoiced as one, and an invoice with a bad ЕИК comes back.
+  await page.getByLabel("ЕИК").fill("123456780");
+  await page.getByRole("button", { name: "Create seller" }).click();
+  await expect(page.getByText(/does not pass its check digit/i)).toBeVisible();
+
+  await page.getByLabel("ЕИК").fill("831641791");
+  await page.getByRole("button", { name: "Create seller" }).click();
+
+  await expect(page).toHaveURL(/\/admin\/sellers$/);
+  await expect(page.getByText(SELLER_NAME)).toBeVisible();
+
+  // Attach it to the property created earlier.
+  const property = await prisma.property.findFirstOrThrow({ where: { slug: SLUG } });
+  await page.goto(`/admin/properties/${property.id}`);
+  await page.getByLabel("Seller").selectOption({ label: SELLER_NAME });
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page).toHaveURL(/\/admin\/properties$/);
+
+  const after = await prisma.property.findFirstOrThrow({ where: { slug: SLUG } });
+  expect(after.sellerId).not.toBeNull();
 });
 
 test("the copy drafter is offered, and says so when it is not configured", async ({ page }) => {

@@ -122,17 +122,25 @@ workflow to record one.
 
 ## 3. Code, still open
 
-### 3.1 Sellers do not exist
+### 3.1 The anonymised bid log for sellers
 
-No model, no contact details, no record. Properties have no owner, so
-"take the bid to the seller" means someone's phone, and a seller fee row
-carries a lot id and nobody's name.
+Sellers now exist as a record, and a lot cannot be published without one.
+What is still missing is the other half of the agreed access design,
+already written into the bidding engine: a seller sees the public price,
+never bidder identities, and gets a full anonymised bid log after close.
+The log is not built.
 
-§11 decided against a self-service seller portal for the MVP, and that
-still holds — but a *record* is needed before real listings. The agreed
-access design is already written into the bidding engine: a seller sees
-the public price, never bidder identities, and gets a full anonymised bid
-log after close. The bid log is not built.
+### 3.1a Admin forms lose their contents on a validation failure
+
+React 19 resets an uncontrolled form once its action completes, so a
+rejected field empties everything else the operator typed. On a property
+form that is a genuinely bad afternoon.
+
+Fixed on the seller form, by echoing the submitted values back through
+`FormState.values` and reading them in preference to the stored record.
+The **property and lot forms still have it** — they are longer, so it
+costs more there. It went unnoticed because no test re-submitted a form
+after an error; the seller spec does, which is how it surfaced.
 
 ### 3.2 Fees stop at "due"
 

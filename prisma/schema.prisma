@@ -179,6 +179,49 @@ enum AdminRole {
   @@map("admin_role")
 }
 
+enum SellerKind {
+  individual
+  company
+
+  @@map("seller_kind")
+}
+
+// Whose property it is (§11: lot sourcing is admin-curated, so this is a
+// record an operator keeps, NOT an account anyone logs into).
+//
+// The auction house needs a seller for three things it currently cannot
+// do: telephone somebody when a lot closes below reserve, put a name on
+// the commission it bills, and send the anonymised bid log the access
+// design promises after close.
+//
+// This is personal data. It is never selected into any public payload —
+// src/server/catalogue/select.ts omits it structurally, the same way it
+// omits the reserve — and the contact details exist to run a transaction,
+// not to build a marketing list.
+model Seller {
+  id          String     @id @default(uuid()) @db.Uuid
+  kind        SellerKind @default(individual)
+  // For a company, the registered name; for a person, their name.
+  name        String
+  email       String?
+  phone       String?
+  // Company registration and VAT number, for the invoice.
+  eik         String?
+  vat         String?
+  // Where invoices and correspondence go, if it differs from the property.
+  address     String?
+  // The auctioneer's own notes: who introduced them, what was agreed on
+  // the phone, anything the next person answering will need.
+  notes       String?    @db.Text
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  properties Property[]
+  fees       Fee[]
+
+  @@index([name])
+  @@map("sellers")
+}
+
 // ---------- Identity ----------
 
 // Bidder identity. Not used by platform operators — see AdminUser.
@@ -313,6 +356,9 @@ model AdminUser {
 // The physical asset.
 model Property {
   id            String       @id @default(uuid()) @db.Uuid
+  // Nullable so a property can be drafted before the seller paperwork
+  // exists. publishBlockers() is what refuses to put it live without one.
+  sellerId      String?      @map("seller_id") @db.Uuid
   slug          String       @unique
   titleBg       String       @map("title_bg")
   titleEn       String       @map("title_en")
@@ -331,9 +377,11 @@ model Property {
   cadastralId   String?      @map("cadastral_id")
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  seller Seller?         @relation(fields: [sellerId], references: [id])
   lots   Lot[]
   images PropertyImage[]
 
+  @@index([sellerId])
   @@map("properties")
 }
 
@@ -608,9 +656,11 @@ model Fee {
   lotId     String    @map("lot_id") @db.Uuid
   party     FeeParty
   kind      FeeKind
-  // Who owes it, where we have a record. Null for seller fees until
-  // sellers are modelled — the lot identifies the property either way.
+  // Who owes it. A buyer's premium points at the bidder; a seller fee
+  // points at the seller. Exactly one is set, and either may be null on
+  // an older row raised before the counterparty was recorded.
   userId    String?   @map("user_id") @db.Uuid
+  sellerId  String?   @map("seller_id") @db.Uuid
 
   netMinor  BigInt    @map("net_minor")
   vatMinor  BigInt    @map("vat_minor")
@@ -628,8 +678,9 @@ model Fee {
   chargedAt DateTime? @map("charged_at") @db.Timestamptz(6)
   note      String?
 
-  lot  Lot   @relation(fields: [lotId], references: [id])
-  user User? @relation(fields: [userId], references: [id])
+  lot    Lot     @relation(fields: [lotId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id])
+  seller Seller? @relation(fields: [sellerId], references: [id])
 
   // One fee of each kind per party per lot. Raising a second commission
   // because a close ran twice is a billing error, not a retry.

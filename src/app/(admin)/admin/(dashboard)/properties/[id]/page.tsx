@@ -6,6 +6,7 @@ import { mediaStorage } from "@/server/storage";
 import { PropertyForm, type PropertyFormValues } from "../property-form";
 import { ImageManager } from "./image-manager";
 import { copyDraftingConfigured } from "@/server/copy/draft";
+import { sellerOptions } from "@/server/sellers/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function EditPropertyPage({
    */
   const values: PropertyFormValues = {
     id: property.id,
+    sellerId: property.sellerId ?? "",
     slug: property.slug,
     titleBg: property.titleBg,
     titleEn: property.titleEn,
@@ -74,7 +76,9 @@ export default async function EditPropertyPage({
 
       <hr style={{ border: 0, borderTop: "1px solid var(--admin-border)", margin: "2rem 0" }} />
 
-      <PropertyForm property={values} copyDraftingAvailable={copyDraftingConfigured()} />
+      <PropertyForm property={values} copyDraftingAvailable={copyDraftingConfigured()}
+        sellers={await sellerOptions()}
+      />
     </div>
   );
 }

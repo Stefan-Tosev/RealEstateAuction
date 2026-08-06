@@ -19,6 +19,7 @@ const PROPERTY_TYPES = ["apartment", "house", "land", "commercial", "other"] as 
  */
 export type PropertyFormValues = {
   id: string;
+  sellerId: string;
   slug: string;
   titleBg: string;
   titleEn: string;
@@ -46,9 +47,11 @@ export type PropertyFormValues = {
 export function PropertyForm({
   property,
   copyDraftingAvailable,
+  sellers,
 }: {
   property: PropertyFormValues | null;
   copyDraftingAvailable: boolean;
+  sellers: { id: string; name: string }[];
 }) {
   const action = savePropertyAction.bind(null, property?.id ?? null);
   const [state, formAction, isPending] = useActionState<FormState, FormData>(action, undefined);
@@ -74,6 +77,24 @@ export function PropertyForm({
           hint="Permanent public URL: /bg/lots/<slug>. Lowercase letters, numbers and hyphens."
         >
           {(props) => <input {...props} type="text" defaultValue={value("slug")} />}
+        </Field>
+
+        <Field
+          name="sellerId"
+          label="Seller"
+          error={errors.sellerId}
+          hint="Required before any lot on this property can be published — somebody has to be contactable and billable."
+        >
+          {(props) => (
+            <select {...props} defaultValue={property?.sellerId ?? ""}>
+              <option value="">Not recorded yet</option>
+              {sellers.map((seller) => (
+                <option key={seller.id} value={seller.id}>
+                  {seller.name}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
 
         <Field name="propertyType" label="Property type" error={errors.propertyType}>

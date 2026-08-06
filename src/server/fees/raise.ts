@@ -47,6 +47,22 @@ async function insert(
 }
 
 /**
+ * Who the seller fees are owed by.
+ *
+ * Null is tolerated rather than thrown on: a lot cannot be PUBLISHED
+ * without a seller, but withdrawal and commission can in principle be
+ * raised against older data, and refusing to record a fee because the
+ * counterparty is missing loses the fee as well as the name.
+ */
+async function sellerFor(lotId: string, client: Client): Promise<string | null> {
+  const lot = await client.lot.findUnique({
+    where: { id: lotId },
+    select: { property: { select: { sellerId: true } } },
+  });
+  return lot?.property.sellerId ?? null;
+}
+
+/**
  * Charged when a lot is published, and non-refundable from that moment.
  *
  * Deliberately at publish rather than at close: §10's whole argument for
@@ -60,6 +76,7 @@ export async function raiseEntryFee(lotId: string, client: Client = prisma): Pro
     lotId,
     party: "seller",
     kind: "entry",
+    sellerId: await sellerFor(lotId, client),
     basis: "fixed",
     netMinor: amount.netMinor,
     vatMinor: amount.vatMinor,
@@ -89,6 +106,7 @@ export async function raiseSaleFees(
     lotId,
     party: "seller",
     kind: "commission",
+    sellerId: await sellerFor(lotId, client),
     basis: "percent",
     rate: bpsToRate(SELLER_COMMISSION_BPS),
     baseMinor: hammerMinor,
@@ -133,6 +151,7 @@ export async function raiseWithdrawalFee(
     lotId,
     party: "seller",
     kind: "withdrawal",
+    sellerId: await sellerFor(lotId, client),
     basis: "fixed",
     netMinor: amount.netMinor,
     vatMinor: amount.vatMinor,

@@ -182,7 +182,18 @@ export function getLot(id: string) {
   return prisma.lot.findUnique({
     where: { id },
     include: {
-      property: { select: { id: true, slug: true, titleBg: true, _count: { select: { images: true } } } },
+      property: {
+        select: {
+          id: true,
+          slug: true,
+          titleBg: true,
+          sellerId: true,
+          // Admin only. Seller details are personal data and are never
+          // selected into a public payload — see catalogue/select.ts.
+          seller: { select: { id: true, name: true, email: true, phone: true } },
+          _count: { select: { images: true } },
+        },
+      },
       reserveAgreedByAdmin: { select: { name: true, email: true } },
     },
   });
@@ -291,7 +302,7 @@ export async function changeLotStatus(actor: AdminActor, lotId: string, to: LotS
   const lot = await prisma.lot.findUniqueOrThrow({
     where: { id: lotId },
     include: {
-      property: { select: { _count: { select: { images: true } } } },
+      property: { select: { sellerId: true, _count: { select: { images: true } } } },
       // Kinds only. The publish gate checks that a document is present,
       // never what it says — see publish.ts on why that line matters.
       documents: { select: { kind: true } },
@@ -310,6 +321,7 @@ export async function changeLotStatus(actor: AdminActor, lotId: string, to: LotS
       biddingOpensAt: lot.biddingOpensAt,
       scheduledCloseAt: lot.scheduledCloseAt,
       documentKinds: lot.documents.map((document) => document.kind),
+      sellerId: lot.property.sellerId,
     });
     if (blockers.length > 0) {
       throw new TransitionRefused(blockers.map((b) => b.message));

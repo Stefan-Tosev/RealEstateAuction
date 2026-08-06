@@ -95,6 +95,7 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
     biddingOpensAt: lot.biddingOpensAt,
     scheduledCloseAt: lot.scheduledCloseAt,
     documentKinds: documents.map((document) => document.kind),
+    sellerId: lot.property.sellerId,
   });
 
   // Advisory: the notary will want these, but not before the lot is live.

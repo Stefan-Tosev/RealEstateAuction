@@ -7,11 +7,12 @@ import { LotControls } from "../lot-controls";
 import { LotForm, type LotFormValues } from "../lot-form";
 import { listLotDocuments } from "@/server/documents/admin";
 import { listSlotsForLot } from "@/server/viewings/bookings";
-import { bidderOptionsForLot, listDepositsForLot } from "@/server/auction/deposits";
+import { bidderOptionsForLot, listDepositsForLot, topBidForLot } from "@/server/auction/deposits";
 import { formatMoney } from "@/lib/money";
 import { DepositManager } from "./deposit-manager";
 import { DocumentManager } from "./document-manager";
 import { SlotManager } from "./slot-manager";
+import { NegotiationPanel, NegotiationOutcomeNote } from "../negotiation-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,25 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
   // Only approved bidders without a deposit on this lot — the ones an
   // operator could actually be recording money for.
   const bidderOptions = await bidderOptionsForLot(lot.id);
+
+  /*
+   * Read only for RESERVE_NOT_MET. winningBidId is set at close for both
+   * outcomes, so this is the amount the auctioneer takes to the seller.
+   */
+  const closedByNegotiation =
+    (lot.status === "CLOSED_SOLD" || lot.status === "CLOSED_UNSOLD") && lot.winningBidId !== null;
+
+  const topBidMinor =
+    lot.status === "RESERVE_NOT_MET" || closedByNegotiation ? await topBidForLot(lot.id) : null;
+
+  /*
+   * A sale below the agreed reserve is only reachable through §10's
+   * window, so the pair says a negotiation concluded without a flag to
+   * record it.
+   */
+  const negotiated =
+    closedByNegotiation &&
+    (lot.status === "CLOSED_UNSOLD" || (topBidMinor !== null && topBidMinor < lot.reservePriceMinor));
 
   const sofia = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Sofia",
@@ -121,6 +141,36 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
         reserveAgreed={Boolean(lot.reserveAgreedBy)}
         canActAsAuctioneer={canPerform(actor.role, "lot.publish")}
       />
+
+      {negotiated ? (
+        <NegotiationOutcomeNote
+          sold={lot.status === "CLOSED_SOLD"}
+          topBidFormatted={topBidMinor === null ? null : formatMoney(topBidMinor, "en")}
+          reserveFormatted={formatMoney(lot.reservePriceMinor, "en")}
+        />
+      ) : null}
+
+      {lot.status === "RESERVE_NOT_MET" ? (
+        <>
+          <hr style={{ border: 0, borderTop: "1px solid var(--admin-border)", margin: "2rem 0" }} />
+          {/*
+            §10's negotiation window. The one closing outcome that needs
+            somebody to do something, and the one that used to have
+            nowhere to do it.
+          */}
+          <NegotiationPanel
+            lotId={lot.id}
+            topBidFormatted={topBidMinor === null ? null : formatMoney(topBidMinor, "en")}
+            reserveFormatted={formatMoney(lot.reservePriceMinor, "en")}
+            shortfallFormatted={
+              topBidMinor === null ? null : formatMoney(lot.reservePriceMinor - topBidMinor, "en")
+            }
+            endsAtFormatted={lot.negotiationEndsAt ? sofia.format(lot.negotiationEndsAt) : null}
+            expired={Boolean(lot.negotiationEndsAt && lot.negotiationEndsAt <= new Date())}
+            canDecide={canPerform(actor.role, "lot.negotiate")}
+          />
+        </>
+      ) : null}
 
       <hr style={{ border: 0, borderTop: "1px solid var(--admin-border)", margin: "2rem 0" }} />
 

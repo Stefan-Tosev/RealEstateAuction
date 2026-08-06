@@ -58,9 +58,9 @@ async function tick() {
     // Quiet unless something happened — a worker that logs every few
     // seconds trains you to ignore it.
     const lines = [];
-    if (closed && closed.outcomes.length > 0) {
+    if (closed && (closed.outcomes.length > 0 || closed.negotiationsExpired > 0)) {
       lines.push(
-        `closed=${closed.closed} reserveNotMet=${closed.reserveNotMet} extended=${closed.extended}`,
+        `closed=${closed.closed} reserveNotMet=${closed.reserveNotMet} extended=${closed.extended} negotiationsExpired=${closed.negotiationsExpired}`,
       );
     }
     if (mail && (mail.sent || mail.retry || mail.abandoned || mail.unknownTemplate)) {

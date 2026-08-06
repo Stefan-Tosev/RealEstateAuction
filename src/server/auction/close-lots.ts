@@ -49,10 +49,12 @@ export async function closeLot(lotId: string): Promise<CloseOutcome> {
         status: string;
         effective_close_at: Date | null;
         reserve_price_minor: bigint;
+        negotiation_hours: number;
         now: Date;
       }[]
     >`
-      SELECT status::text, effective_close_at, reserve_price_minor, clock_timestamp() AS now
+      SELECT status::text, effective_close_at, reserve_price_minor, negotiation_hours,
+             clock_timestamp() AS now
         FROM lots
        WHERE id = ${lotId}::uuid
          FOR UPDATE
@@ -86,6 +88,26 @@ export async function closeLot(lotId: string): Promise<CloseOutcome> {
         where: { id: lotId },
         data: { status: "CLOSED_UNSOLD", closedAt: lot.now },
       });
+
+      // Nobody bid, so nobody is owed anything but their money back.
+      const held = await tx.deposit.findMany({
+        where: { lotId, status: "held" },
+        select: { id: true, userId: true, amountMinor: true },
+      });
+
+      for (const deposit of held) {
+        await tx.deposit.update({ where: { id: deposit.id }, data: { status: "released" } });
+        await enqueue(
+          {
+            userId: deposit.userId,
+            channel: "email",
+            template: "deposit_released",
+            payload: { lotId, amountMinor: deposit.amountMinor.toString() },
+          },
+          tx,
+        );
+      }
+
       return { lotId, result: "unsold" as const };
     }
 
@@ -99,8 +121,42 @@ export async function closeLot(lotId: string): Promise<CloseOutcome> {
         // Recorded either way: in the reserve-not-met window the top bid
         // is precisely what the auctioneer takes to the seller.
         winningBidId: highest.id,
+        /*
+         * §10 gives the auctioneer a configurable 24-72 hours to bridge
+         * the gap. Stamped here rather than computed on read, so the
+         * bidder whose deposit is being held can be told exactly when
+         * they get it back, and so the sweep is an index scan.
+         */
+        negotiationEndsAt: metReserve
+          ? null
+          : new Date(lot.now.getTime() + lot.negotiation_hours * 3_600_000),
       },
     });
+
+    /*
+     * Losing bidders get their money back now, not when someone
+     * remembers. §10: "A bidder is never charged when a lot fails to
+     * sell." The top bidder's stays held either way — they owe the
+     * purchase price if it sold, and §10 keeps it held through the
+     * negotiation window if it did not.
+     */
+    const losing = await tx.deposit.findMany({
+      where: { lotId, status: "held", userId: { not: highest.userId } },
+      select: { id: true, userId: true, amountMinor: true },
+    });
+
+    for (const deposit of losing) {
+      await tx.deposit.update({ where: { id: deposit.id }, data: { status: "released" } });
+      await enqueue(
+        {
+          userId: deposit.userId,
+          channel: "email",
+          template: "deposit_released",
+          payload: { lotId, amountMinor: deposit.amountMinor.toString() },
+        },
+        tx,
+      );
+    }
 
     await enqueue(
       {

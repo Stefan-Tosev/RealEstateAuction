@@ -87,7 +87,13 @@ const ALLOWED_TRANSITIONS: Record<LotStatus, LotStatus[]> = {
   PUBLISHED: ["DRAFT", "CANCELLED"],
   BIDDING_OPEN: ["CANCELLED"],
   EXTENDING: [],
-  RESERVE_NOT_MET: [],
+  /*
+   * §10's negotiation window. Not a dead end any more — these two are
+   * the whole point of the status. Driven by src/server/auction/
+   * negotiation.ts rather than by the generic transition form, because
+   * each carries deposit consequences the form knows nothing about.
+   */
+  RESERVE_NOT_MET: ["CLOSED_SOLD", "CLOSED_UNSOLD"],
   CLOSED_SOLD: [],
   CLOSED_UNSOLD: [],
   CANCELLED: ["DRAFT"],

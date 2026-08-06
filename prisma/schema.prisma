@@ -397,6 +397,15 @@ model Lot {
   // agree the reserve, sellers do not set it unilaterally.
   reserveAgreedBy        String?   @map("reserve_agreed_by") @db.Uuid
   reserveAgreedAt        DateTime? @map("reserve_agreed_at") @db.Timestamptz(6)
+
+  // §10: an unmet reserve opens a "configurable 24-72 hours" in which the
+  // auctioneer takes the top bid to the seller. Per lot, because a
+  // motivated seller and an absent one need different windows.
+  negotiationHours       Int       @default(48) @map("negotiation_hours")
+  // Set when the lot enters RESERVE_NOT_MET. Null at every other status,
+  // which is what makes "is this window still open?" a column read rather
+  // than arithmetic over closedAt.
+  negotiationEndsAt      DateTime? @map("negotiation_ends_at") @db.Timestamptz(6)
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   property             Property      @relation(fields: [propertyId], references: [id])
@@ -415,6 +424,9 @@ model Lot {
   // index on `status` (this one's leftmost column covers it) and none on
   // `property_id` (the unique above already leads with it).
   @@index([status, effectiveCloseAt])
+  // The expiry sweep: WHERE status = 'RESERVE_NOT_MET' AND
+  // negotiation_ends_at <= now(). Same shape as the closing sweep above.
+  @@index([status, negotiationEndsAt])
   @@map("lots")
 }
 

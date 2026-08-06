@@ -98,9 +98,18 @@ describe("canTransition", () => {
   });
 
   it("refuses reopening a finished lot", () => {
-    for (const from of ["CLOSED_SOLD", "CLOSED_UNSOLD", "RESERVE_NOT_MET"] as LotStatus[]) {
+    for (const from of ["CLOSED_SOLD", "CLOSED_UNSOLD"] as LotStatus[]) {
       expect(allowedTransitions(from)).toEqual([]);
     }
+  });
+
+  it("leaves an unmet reserve a way out", () => {
+    /*
+     * §10: "An unmet reserve is not a terminal state." It used to be one
+     * here — an empty list — which stranded the single ending that has a
+     * verified buyer with money already down.
+     */
+    expect(allowedTransitions("RESERVE_NOT_MET")).toEqual(["CLOSED_SOLD", "CLOSED_UNSOLD"]);
   });
 
   it("permits cancelling a live lot", () => {

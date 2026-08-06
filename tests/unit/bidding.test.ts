@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { closeLot, closeDueLots } from "@/server/auction/close-lots";
+import { acceptTopBid, declineTopBid, expireNegotiationWindows } from "@/server/auction/negotiation";
 import { DEFAULT_BANDS, incrementForFromBands } from "@/server/auction/increments";
 import { DEFAULT_SCHEDULE, placeBid, windowFor } from "@/server/auction/place-bid";
 import { getBiddingView } from "@/server/auction/bidding-view";
@@ -23,6 +24,9 @@ const PREFIX = "vitest-bid-";
 let lotId = "";
 let propertyId = "";
 let bidders: string[] = [];
+/** A real admin row: the audit trail has a foreign key to it. */
+let ADMIN_ID = "";
+let ADMIN_ACTOR: { id: string; email: string; role: "admin" };
 
 async function makeBidder(n: number, approved = true): Promise<string> {
   const user = await prisma.user.create({
@@ -133,6 +137,10 @@ beforeEach(async () => {
   propertyId = property.id;
 
   bidders = await Promise.all([0, 1, 2].map((n) => makeBidder(n)));
+
+  const admin = await prisma.adminUser.findFirstOrThrow({ select: { id: true, email: true } });
+  ADMIN_ID = admin.id;
+  ADMIN_ACTOR = { id: admin.id, email: admin.email, role: "admin" };
   lotId = await makeLot({ closesInSeconds: 3600 });
 });
 
@@ -736,6 +744,166 @@ describe("closing a lot (§3)", () => {
 
     const queued = await prisma.outbox.findMany({ where: { userId: bidders[0] } });
     expect(queued.map((o) => o.template)).toContain("lot_won");
+  });
+});
+
+describe("the post-auction negotiation window (§10)", () => {
+  /*
+   * An unmet reserve used to be a dead end: RESERVE_NOT_MET had no
+   * onward transition, so the one ending with a verified buyer, money
+   * already down and a known price was the one the system could not
+   * finish.
+   */
+  async function closeUnderReserve(options: { negotiationHours?: number } = {}) {
+    /*
+     * An hour out, so the bid lands well outside the soft-close window
+     * and does not extend the clock — then the close is moved into the
+     * past. Bidding on a lot that is seconds from closing extends it by
+     * five minutes, which is the engine working correctly and a slow way
+     * to write this test.
+     */
+    const lot = await makeLot({
+      closesInSeconds: 3600,
+      startingPriceMinor: 10_000_000n,
+      reservePriceMinor: 20_000_000n,
+    });
+
+    await placeBid({
+      lotId: lot,
+      userId: bidders[0],
+      amountMinor: 10_000_000n,
+      idempotencyKey: key(),
+    });
+    await prisma.deposit.createMany({
+      data: [
+        { userId: bidders[0], lotId: lot, amountMinor: 500_000n, status: "held", method: "sepa" },
+        { userId: bidders[1], lotId: lot, amountMinor: 500_000n, status: "held", method: "sepa" },
+      ],
+    });
+
+    await prisma.lot.update({
+      where: { id: lot },
+      data: {
+        effectiveCloseAt: new Date(Date.now() - 1000),
+        ...(options.negotiationHours === undefined
+          ? {}
+          : { negotiationHours: options.negotiationHours }),
+      },
+    });
+
+    await closeLot(lot);
+    return lot;
+  }
+
+  it("opens a window and holds only the top bidder's deposit", async () => {
+    const lotId = await closeUnderReserve({ negotiationHours: 48 });
+
+    const lot = await prisma.lot.findUniqueOrThrow({ where: { id: lotId } });
+    expect(lot.status).toBe("RESERVE_NOT_MET");
+    expect(lot.negotiationEndsAt).not.toBeNull();
+
+    const hoursOut = (lot.negotiationEndsAt!.getTime() - Date.now()) / 3_600_000;
+    expect(hoursOut).toBeGreaterThan(47);
+    expect(hoursOut).toBeLessThan(49);
+
+    // §10: the top bidder's stays held for the duration. The losing
+    // bidder's goes back now, not when somebody remembers.
+    const top = await prisma.deposit.findFirstOrThrow({ where: { lotId, userId: bidders[0] } });
+    const losing = await prisma.deposit.findFirstOrThrow({ where: { lotId, userId: bidders[1] } });
+    expect(top.status).toBe("held");
+    expect(losing.status).toBe("released");
+    expect(
+      await prisma.outbox.count({ where: { userId: bidders[1], template: "deposit_released" } }),
+    ).toBe(1);
+  });
+
+  it("sells at the bid when the seller accepts, leaving the reserve on the record", async () => {
+    const lotId = await closeUnderReserve();
+    await acceptTopBid(ADMIN_ACTOR, lotId, "Agreed by phone");
+
+    const lot = await prisma.lot.findUniqueOrThrow({ where: { id: lotId } });
+    expect(lot.status).toBe("CLOSED_SOLD");
+    expect(lot.negotiationEndsAt).toBeNull();
+    // Not rewritten to the sale price — the gap is the evidence a
+    // negotiation happened at all.
+    expect(lot.reservePriceMinor).toBe(20_000_000n);
+
+    expect(
+      await prisma.outbox.count({ where: { userId: bidders[0], template: "lot_won" } }),
+    ).toBe(1);
+
+    // The buyer now owes the purchase price; the deposit secures it.
+    const top = await prisma.deposit.findFirstOrThrow({ where: { lotId, userId: bidders[0] } });
+    expect(top.status).toBe("held");
+  });
+
+  it("closes unsold and returns the money when the seller declines", async () => {
+    const lotId = await closeUnderReserve();
+    await declineTopBid(ADMIN_ACTOR, lotId, "Holding out");
+
+    const lot = await prisma.lot.findUniqueOrThrow({ where: { id: lotId } });
+    expect(lot.status).toBe("CLOSED_UNSOLD");
+
+    // §10: "Deposit refunded in full, no exceptions."
+    const top = await prisma.deposit.findFirstOrThrow({ where: { lotId, userId: bidders[0] } });
+    expect(top.status).toBe("released");
+  });
+
+  it("expires on the clock, exactly as a decline does", async () => {
+    /*
+     * An expiry is a decline nobody got round to making. A bidder's money
+     * cannot stay held because an auctioneer was on holiday.
+     */
+    const lotId = await closeUnderReserve();
+    await prisma.lot.update({
+      where: { id: lotId },
+      data: { negotiationEndsAt: new Date(Date.now() - 1000) },
+    });
+
+    const expired = await expireNegotiationWindows();
+    expect(expired).toContain(lotId);
+
+    const lot = await prisma.lot.findUniqueOrThrow({ where: { id: lotId } });
+    expect(lot.status).toBe("CLOSED_UNSOLD");
+
+    const top = await prisma.deposit.findFirstOrThrow({ where: { lotId, userId: bidders[0] } });
+    expect(top.status).toBe("released");
+
+    // Nobody decided this, so no name goes against it.
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { entityId: lotId, action: "lot.negotiationExpired" },
+    });
+    expect(audit.actorUserId).toBeNull();
+  });
+
+  it("does not expire a window that is still running", async () => {
+    const lotId = await closeUnderReserve({ negotiationHours: 48 });
+
+    expect(await expireNegotiationWindows()).not.toContain(lotId);
+    const lot = await prisma.lot.findUniqueOrThrow({ where: { id: lotId } });
+    expect(lot.status).toBe("RESERVE_NOT_MET");
+  });
+
+  it("refuses to conclude a lot that is not in a window", async () => {
+    // Guards the double-click and the stale tab: accepting twice would
+    // otherwise release a deposit that a sale is relying on.
+    const lotId = await closeUnderReserve();
+    await acceptTopBid(ADMIN_ACTOR, lotId, null);
+
+    await expect(
+      acceptTopBid(ADMIN_ACTOR, lotId, null),
+    ).rejects.toThrow(/not in a negotiation window/);
+  });
+
+  it("records who concluded it and what they said", async () => {
+    const lotId = await closeUnderReserve();
+    await acceptTopBid(ADMIN_ACTOR, lotId, "Seller agreed on the phone");
+
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { entityId: lotId, action: "lot.negotiationAccepted" },
+    });
+    expect(audit.actorUserId).toBe(ADMIN_ID);
+    expect(JSON.stringify(audit.after)).toContain("Seller agreed on the phone");
   });
 });
 

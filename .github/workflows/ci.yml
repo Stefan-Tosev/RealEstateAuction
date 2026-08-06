@@ -42,6 +42,12 @@ env:
 
 jobs:
   test:
+    # The check that branch protection requires is named after the JOB,
+    # not the workflow. Without this the check reports as "test" while a
+    # ruleset requiring "CI" waits forever for something that never
+    # arrives — which blocks every merge rather than letting anything
+    # through, but blocks them all the same.
+    name: CI
     runs-on: ubuntu-latest
     timeout-minutes: 25
 

@@ -1,0 +1,133 @@
+name: CI
+
+# Every push, on every branch. The point is that nothing reaches main
+# without the suites having run somewhere other than one developer's
+# laptop.
+#
+# No `pull_request` trigger: branches here live in this repository, so the
+# push has already run CI by the time a PR exists, and adding it would
+# just run everything twice for the same commit. Add it if outside
+# contributors ever open PRs from forks, whose pushes this cannot see.
+on:
+  push:
+    branches: ["**"]
+  # So a red run can be retried after an infrastructure blip without an
+  # empty commit.
+  workflow_dispatch:
+
+concurrency:
+  # A second push to the same branch cancels the first — the older run's
+  # answer is about code nobody has any more.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The suites hit a real database; there is no mocking layer to stand in
+  # for row locks and clock_timestamp(), which is most of what they check.
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auction_test
+  AUTH_SECRET: ci-only-secret-not-used-anywhere-real
+  AUTH_URL: http://localhost:3000
+  NEXT_PUBLIC_SITE_URL: http://localhost:3000
+  ADMIN_EMAIL: ci-admin@example.test
+  ADMIN_PASSWORD: ci-only-password-not-used-anywhere-real
+  CRON_SECRET: ci-only-cron-secret
+  # Deliberately empty. transport.ts falls back to the console stub when
+  # there is no key, which is the only thing standing between a CI run and
+  # a few hundred real emails to test addresses.
+  RESEND_API_KEY: ""
+  MAIL_FROM: Auction House <onboarding@resend.dev>
+  # Sofia is UTC+3 in summer. Running as UTC means a date bug cannot hide
+  # behind the developer's own timezone.
+  TZ: UTC
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        # Match production. Advisory locks and SKIP LOCKED behave the same
+        # across these versions, but the schema uses citext and jsonb and
+        # there is no reason to test against a different major.
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: auction_test
+        ports:
+          - 5432:5432
+        # Without this the first migration races the database's own
+        # startup and fails with a connection error that looks like a
+        # config problem.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        # deploy, not dev: dev would try to author a migration when the
+        # schema and the migration history disagree, and prompt for a name.
+        run: npx prisma migrate deploy
+
+      - name: Generate the client
+        run: npm run db:generate
+
+      - name: Seed
+        # Both suites read the seeded catalogue. The seed is idempotent and
+        # stores dates as offsets from seed time, so this is also what
+        # keeps the lots from looking closed before a test opens them.
+        run: npm run db:seed
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Install Playwright browsers
+        # Chromium only. The suite tests behaviour and security boundaries
+        # rather than rendering quirks, and three browsers would triple the
+        # slowest step for no finding it would catch.
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        # The production config, not the dev one. Auth.js validates the
+        # request Host in production and trusts it in development, so admin
+        # login passed every dev run and failed under `next start` — a
+        # deploy-day outage no amount of dev-server testing could surface.
+        run: npm run test:e2e:prod
+
+      - name: Upload failure artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          # Screenshots and the accessibility snapshot Playwright writes on
+          # failure. The e2e suite is strong on behaviour and blind to
+          # layout, so the snapshot is often the only thing that shows what
+          # the page actually looked like.
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Check the suites left the database as they found it
+        # A spec that leaks rows passes today and breaks an unrelated one
+        # tomorrow — which has already happened here, when a worker test
+        # closed a seeded lot and the catalogue count assertion failed two
+        # files away.
+        run: node scripts/check-clean.mjs

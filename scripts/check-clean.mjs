@@ -60,6 +60,9 @@ for (const [model, label] of [
   // Sellers are personal data. One left behind by a spec is somebody's
   // name and telephone number sitting in a database for no reason.
   [prisma.seller, "seller"],
+  // An invoice left behind is a used number in the sequence with nothing
+  // to account for it — which is exactly what the numbering guards against.
+  [prisma.invoice, "invoice"],
 ]) {
   const count = await model.count();
   if (count > 0) problems.push(`${count} ${label}(s) left behind`);

@@ -130,11 +130,15 @@ already written into the bidding engine: a seller sees the public price,
 never bidder identities, and gets a full anonymised bid log after close.
 The log is not built.
 
-### 3.2 Fees stop at "due"
+### 3.2 Invoices are printed, not emailed
 
-`invoiced`, `paid` and `waived` exist in the enum and nothing moves a fee
-into them. No invoice is generated. Until that exists, the fee table is a
-record of what is owed and not a billing system.
+Invoices can now be raised, settled and cancelled, with gapless numbering
+and a printable sheet. What is not built is sending one — a seller gets
+no email with their invoice attached, so an operator prints it and sends
+it themselves.
+
+The outbox can already address a seller, so the missing piece is a
+template and a PDF (or a signed link to the existing page).
 
 ### 3.3 What happens between "you won" and the keys
 

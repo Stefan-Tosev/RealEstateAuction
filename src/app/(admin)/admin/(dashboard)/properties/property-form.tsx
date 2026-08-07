@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { savePropertyAction, type FormState } from "../../catalogue-actions";
 import { Field } from "../../_components/field";
@@ -57,10 +57,34 @@ export function PropertyForm({
   const [state, formAction, isPending] = useActionState<FormState, FormData>(action, undefined);
 
   const errors = state?.errors ?? {};
-  const value = (key: keyof PropertyFormValues) => property?.[key] ?? "";
+  /*
+   * What was just submitted if the action bounced it back, otherwise the
+   * stored record.
+   *
+   * React 19 resets an uncontrolled form once its action completes, so
+   * without this one rejected field empties an entire property listing.
+   */
+  const value = (key: keyof PropertyFormValues) => state?.values?.[key] ?? property?.[key] ?? "";
+
+  /*
+   * Remount the form after every action result.
+   *
+   * React resets an uncontrolled form once its action completes, and a
+   * re-render does not undo that: defaultValue is only read at mount, and
+   * a controlled field desyncs because the reset changes the DOM without
+   * changing any state, so nothing re-renders to correct it.
+   *
+   * Bumping a key sidesteps the whole argument. A fresh mount reads every
+   * defaultValue again — and those now come from what was submitted, so
+   * the form comes back exactly as the operator left it.
+   */
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (state) setAttempt((n) => n + 1);
+  }, [state]);
 
   return (
-    <form className="admin-form" action={formAction} noValidate>
+    <form key={attempt} className="admin-form" action={formAction} noValidate>
       {state?.message ? (
         <p className="admin-notice" data-tone="error" role="alert">
           {state.message}
@@ -86,7 +110,7 @@ export function PropertyForm({
           hint="Required before any lot on this property can be published — somebody has to be contactable and billable."
         >
           {(props) => (
-            <select {...props} defaultValue={property?.sellerId ?? ""}>
+            <select {...props} defaultValue={value("sellerId")}>
               <option value="">Not recorded yet</option>
               {sellers.map((seller) => (
                 <option key={seller.id} value={seller.id}>
@@ -99,7 +123,7 @@ export function PropertyForm({
 
         <Field name="propertyType" label="Property type" error={errors.propertyType}>
           {(props) => (
-            <select {...props} defaultValue={property?.propertyType ?? "apartment"}>
+            <select {...props} defaultValue={value("propertyType") || "apartment"}>
               {PROPERTY_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {type}

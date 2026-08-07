@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getInvoice } from "@/server/fees/invoice";
-import { issuer } from "@/server/fees/issuer";
+import { issuer, isDemoIssuer } from "@/server/fees/issuer";
 import { requireAdmin, canPerform } from "@/server/identity/authz";
 import { formatMoney } from "@/lib/money";
 import { InvoiceControls } from "../invoice-controls";
@@ -51,7 +51,19 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         />
       </div>
 
-      <article className="invoice-sheet">
+      <article className="invoice-sheet" data-demo={isDemoIssuer() ? "true" : undefined}>
+        {isDemoIssuer() ? (
+          /*
+           * On the sheet itself, and in the print stylesheet — because
+           * the failure mode is somebody printing one of these and
+           * sending it to a seller. A demo invoice must be impossible to
+           * mistake for a real one after it has left the screen.
+           */
+          <p className="invoice-specimen">
+            ОБРАЗЕЦ · SPECIMEN — not a valid invoice. The issuer details below are placeholders.
+          </p>
+        ) : null}
+
         <header className="invoice-head">
           <div>
             <h2>ФАКТУРА / INVOICE</h2>

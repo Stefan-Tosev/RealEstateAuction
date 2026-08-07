@@ -104,8 +104,12 @@ async function cleanup() {
   await prisma.deposit.deleteMany({ where: { user: { email: { startsWith: PREFIX } } } });
   await prisma.bidderApproval.deleteMany({ where: { user: { email: { startsWith: PREFIX } } } });
   await prisma.outbox.deleteMany({ where: { user: { email: { startsWith: PREFIX } } } });
+  // Sales before users: sales_user_id_fkey is RESTRICT, because a
+  // completion in progress should not vanish with a deleted account.
+  await prisma.sale.deleteMany({ where: { user: { email: { startsWith: PREFIX } } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } });
   // Lots created here hang off the seeded property; winningBidId must go first.
+  await prisma.sale.deleteMany({ where: { lot: { property: { slug: PREFIX + "prop" } } } });
   await prisma.fee.deleteMany({ where: { lot: { property: { slug: PREFIX + "prop" } } } });
   await prisma.lot.updateMany({ where: { property: { slug: PREFIX + "prop" } }, data: { winningBidId: null } });
   await prisma.$executeRawUnsafe("ALTER TABLE bids DISABLE TRIGGER bids_append_only");

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { enqueue } from "@/server/notifications/outbox";
 import { raiseSaleFees } from "@/server/fees/raise";
 import { sendBidLogToSeller } from "./seller-report";
+import { openSale } from "@/server/sales/sale";
 
 /*
  * Closing lots whose clock has run out — §3, "Closing a lot".
@@ -175,6 +176,12 @@ export async function closeLot(lotId: string): Promise<CloseOutcome> {
      */
     if (metReserve) {
       await raiseSaleFees(lotId, highest.amountMinor, highest.userId, tx);
+      /*
+       * A sold lot with no sale record is exactly the hole this closes.
+       * Opened inside the same transaction as the close, so the two can
+       * never disagree about whether the property sold.
+       */
+      await openSale(lotId, highest.userId, highest.amountMinor, tx);
     }
 
     await enqueue(

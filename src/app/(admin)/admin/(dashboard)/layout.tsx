@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { label: "Properties", href: "/admin/properties", enabled: true },
   { label: "Sellers", href: "/admin/sellers", enabled: true },
   { label: "Bidders", href: "/admin/bidders", enabled: true },
+  { label: "Sales", href: "/admin/sales", enabled: true },
   { label: "Invoices", href: "/admin/invoices", enabled: true },
   { label: "Documents", href: "/admin/documents", enabled: false },
   { label: "Viewings", href: "/admin/viewings", enabled: false },

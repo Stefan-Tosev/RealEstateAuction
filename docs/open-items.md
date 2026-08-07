@@ -122,11 +122,27 @@ workflow to record one.
 
 ## 3. Code, still open
 
-### 3.2 Fees stop at "due"
+### 3.1a Admin forms lose their contents on a validation failure
 
-`invoiced`, `paid` and `waived` exist in the enum and nothing moves a fee
-into them. No invoice is generated. Until that exists, the fee table is a
-record of what is owed and not a billing system.
+React 19 resets an uncontrolled form once its action completes, so a
+rejected field empties everything else the operator typed. On a property
+form that is a genuinely bad afternoon.
+
+Fixed on the seller form, by echoing the submitted values back through
+`FormState.values` and reading them in preference to the stored record.
+The **property and lot forms still have it** — they are longer, so it
+costs more there. It went unnoticed because no test re-submitted a form
+after an error; the seller spec does, which is how it surfaced.
+
+### 3.2 Invoices are printed, not emailed
+
+Invoices can now be raised, settled and cancelled, with gapless numbering
+and a printable sheet. What is not built is sending one — a seller gets
+no email with their invoice attached, so an operator prints it and sends
+it themselves.
+
+The outbox can already address a seller, so the missing piece is a
+template and a PDF (or a signed link to the existing page).
 
 ### 3.3 What happens between "you won" and the keys
 

@@ -163,6 +163,14 @@ enum FeeBasis {
   @@map("fee_basis")
 }
 
+enum InvoiceStatus {
+  issued
+  paid
+  cancelled
+
+  @@map("invoice_status")
+}
+
 enum FeeStatus {
   due
   invoiced
@@ -221,6 +229,7 @@ model Seller {
   properties Property[]
   fees       Fee[]
   messages   Outbox[]
+  invoices   Invoice[]
 
   @@index([name])
   @@map("sellers")
@@ -254,6 +263,7 @@ model User {
   outboxEntries   Outbox[]
   verificationTokens EmailVerificationToken[]
   fees               Fee[]
+  invoices           Invoice[]
   consents        Consent[]
 
   @@map("users")
@@ -614,6 +624,64 @@ model Deposit {
 // actor may be a bidder (`users`) or an operator (`admin_users`), and
 // the log must keep working (and keep the id) even if the actor row is
 // later deleted.
+// The next invoice number, as a row rather than a sequence.
+//
+// A Postgres sequence leaves gaps: nextval() is not rolled back, so an
+// aborted transaction burns a number. Bulgarian фактури must be numbered
+// consecutively, and "we skipped 0000000042 because a database
+// transaction failed" is not an answer anyone wants to give an auditor.
+//
+// So the number is taken under SELECT ... FOR UPDATE inside the same
+// transaction that writes the invoice: if that rolls back, the number is
+// not consumed. It serialises invoice creation, which is correct — they
+// must be issued in order — and at this volume costs nothing.
+model InvoiceCounter {
+  series String @id
+  next   Int    @default(1)
+
+  @@map("invoice_counters")
+}
+
+// What was billed, to whom, and for what.
+//
+// Separate from `fees` because they answer different questions: a fee is
+// what somebody owes, an invoice is the document raised for it. One
+// invoice covers several fees — a seller's entry fee and commission on
+// the same lot belong on one piece of paper.
+model Invoice {
+  id       String        @id @default(uuid()) @db.Uuid
+  // Ten digits, zero padded, gapless. See InvoiceCounter.
+  number   String        @unique
+  series   String
+  status   InvoiceStatus @default(issued)
+
+  // Exactly one, matching the fees it covers.
+  sellerId String?       @map("seller_id") @db.Uuid
+  userId   String?       @map("user_id") @db.Uuid
+
+  // Copied at issue, never joined at render time. An invoice is a record
+  // of what was billed on a date; if a seller later changes their
+  // address, the document already sent must not silently change with it.
+  billedName    String  @map("billed_name")
+  billedAddress String? @map("billed_address")
+  billedEik     String? @map("billed_eik")
+  billedVat     String? @map("billed_vat")
+
+  netMinor BigInt   @map("net_minor")
+  vatMinor BigInt   @map("vat_minor")
+
+  issuedAt DateTime  @default(now()) @map("issued_at") @db.Timestamptz(6)
+  paidAt   DateTime? @map("paid_at") @db.Timestamptz(6)
+  note     String?
+
+  seller Seller? @relation(fields: [sellerId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id])
+  fees   Fee[]
+
+  @@index([status, issuedAt])
+  @@map("invoices")
+}
+
 model AuditLog {
   id          String   @id @default(uuid()) @db.Uuid
   actorUserId String?  @map("actor_user_id") @db.Uuid
@@ -686,10 +754,12 @@ model Fee {
   status    FeeStatus @default(due)
   chargedAt DateTime? @map("charged_at") @db.Timestamptz(6)
   note      String?
+  invoiceId String?   @map("invoice_id") @db.Uuid
 
-  lot    Lot     @relation(fields: [lotId], references: [id])
-  user   User?   @relation(fields: [userId], references: [id])
-  seller Seller? @relation(fields: [sellerId], references: [id])
+  lot     Lot      @relation(fields: [lotId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+  seller  Seller?  @relation(fields: [sellerId], references: [id])
+  invoice Invoice? @relation(fields: [invoiceId], references: [id])
 
   // One fee of each kind per party per lot. Raising a second commission
   // because a close ran twice is a billing error, not a retry.

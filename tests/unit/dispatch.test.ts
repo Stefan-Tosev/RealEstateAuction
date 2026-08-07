@@ -277,6 +277,27 @@ describe("the copy itself", () => {
     }
   });
 
+  it("renders the seller's bid log, which is addressed to a non-User", () => {
+    /*
+     * Sellers are not Users — §11 keeps them a record rather than an
+     * account — so this template is the first one the outbox delivers to
+     * somebody with no login.
+     */
+    const rendered = render("lot_bid_log", {
+      locale: "en",
+      baseUrl: "https://example.test",
+      payload: { summary: "The lot sold for €355,000.", log: "Bidder 1 — €345,000" },
+      lot: { lotRef: "012", slug: "a-lot", title: "A lot" },
+    });
+
+    expect(rendered).not.toBeNull();
+    expect(rendered!.text).toContain("The lot sold for");
+    expect(rendered!.text).toContain("Bidder 1");
+    // Says plainly why it is anonymised, rather than leaving a seller to
+    // wonder whether we are hiding something from them.
+    expect(rendered!.text).toMatch(/numbered rather than named/i);
+  });
+
   it("covers every template the application enqueues", () => {
     /*
      * The other direction: an enqueue site whose name nothing renders.
@@ -294,6 +315,7 @@ describe("the copy itself", () => {
       "viewing_booked",
       "viewing_cancelled_by_bidder",
       "viewing_cancelled_by_house",
+      "lot_bid_log",
     ];
 
     expect(TEMPLATE_NAMES.sort()).toEqual(enqueued.sort());

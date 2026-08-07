@@ -218,6 +218,9 @@ model Seller {
   vat         String?
   // Where invoices and correspondence go, if it differs from the property.
   address     String?
+  // Which language to write to them in. Bulgarian by default, because
+  // that is who is selling; a foreign owner can be switched.
+  locale      Locale     @default(bg)
   // The auctioneer's own notes: who introduced them, what was agreed on
   // the phone, anything the next person answering will need.
   notes       String?    @db.Text
@@ -225,6 +228,7 @@ model Seller {
 
   properties Property[]
   fees       Fee[]
+  messages   Outbox[]
   invoices   Invoice[]
 
   @@index([name])
@@ -694,9 +698,13 @@ model AuditLog {
 
 // Durable notification queue so a mail provider outage cannot lose a
 // notification (§4).
+// A queued message. Addressed to EITHER a bidder or a seller — exactly
+// one, enforced by a check constraint, because a message with no
+// recipient is undeliverable and one with two is ambiguous.
 model Outbox {
   id        String              @id @default(uuid()) @db.Uuid
-  userId    String              @map("user_id") @db.Uuid
+  userId    String?             @map("user_id") @db.Uuid
+  sellerId  String?             @map("seller_id") @db.Uuid
   channel   NotificationChannel
   template  String
   payload   Json
@@ -705,7 +713,8 @@ model Outbox {
   attempts  Int                 @default(0)
   createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id])
+  seller Seller? @relation(fields: [sellerId], references: [id])
 
   @@map("outbox")
 }

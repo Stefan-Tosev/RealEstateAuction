@@ -145,6 +145,17 @@ const TEMPLATES: Record<string, Record<Locale, Renderer>> = {
     }),
   },
 
+  lot_bid_log: {
+    bg: (c) => ({
+      subject: `Отчет за наддаването${c.lot ? ` — лот ${c.lot.lotRef}` : ""}`,
+      text: `Здравейте,\n\n${lotLine(c)}\n\n${str(c.payload, "summary")}\n\nПълен списък на приетите оферти:\n\n${str(c.payload, "log")}\n\nУчастниците са номерирани, а не именувани. Не разкриваме самоличността на наддаващите — това ги защитава и запазва стойността на процеса за вас.\n\nЩе се свържем с вас за следващите стъпки.${SIGN_OFF.bg}`,
+    }),
+    en: (c) => ({
+      subject: `Bidding report${c.lot ? ` — lot ${c.lot.lotRef}` : ""}`,
+      text: `Hello,\n\n${lotLine(c)}\n\n${str(c.payload, "summary")}\n\nEvery accepted bid, in order:\n\n${str(c.payload, "log")}\n\nBidders are numbered rather than named. We do not disclose who bid — that protects them, and it is what keeps the process worth taking part in.\n\nWe will be in touch about next steps.${SIGN_OFF.en}`,
+    }),
+  },
+
   viewing_booked: {
     bg: (c) => ({
       subject: "Записахте се за оглед",

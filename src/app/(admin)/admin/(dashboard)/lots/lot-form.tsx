@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { saveLotAction, type FormState } from "../../catalogue-actions";
 import { Field } from "../../_components/field";
@@ -34,8 +34,43 @@ export function LotForm({
   const [state, formAction, isPending] = useActionState<FormState, FormData>(action, undefined);
   const errors = state?.errors ?? {};
 
+  /*
+   * What was just submitted if the action bounced it back, otherwise the
+   * stored lot.
+   *
+   * React 19 resets an uncontrolled form once its action completes, so
+   * without this a single rejected field empties every price and date an
+   * operator has just entered — and these are the fields where retyping
+   * from memory is most likely to introduce a different mistake.
+   *
+   * Two keys, not one: the form posts the money fields under their
+   * *Minor* names while the stored values are *Major* strings — the
+   * schema converts on the way in. Looking the echo up by the wrong one
+   * silently returns nothing, which is exactly how the first version of
+   * this fix failed.
+   */
+  const value = (field: string, stored: keyof LotFormValues, fallback = "") =>
+    state?.values?.[field] ?? (lot ? String(lot[stored]) : fallback);
+
+  /*
+   * Remount the form after every action result.
+   *
+   * React resets an uncontrolled form once its action completes, and a
+   * re-render does not undo that: defaultValue is only read at mount, and
+   * a controlled field desyncs because the reset changes the DOM without
+   * changing any state, so nothing re-renders to correct it.
+   *
+   * Bumping a key sidesteps the whole argument. A fresh mount reads every
+   * defaultValue again — and those now come from what was submitted, so
+   * the form comes back exactly as the operator left it.
+   */
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (state) setAttempt((n) => n + 1);
+  }, [state]);
+
   return (
-    <form className="admin-form" action={formAction} noValidate>
+    <form key={attempt} className="admin-form" action={formAction} noValidate>
       {state?.message ? (
         <p className="admin-notice" data-tone="error" role="alert">
           {state.message}
@@ -47,7 +82,7 @@ export function LotForm({
 
         <Field name="propertyId" label="Property" error={errors.propertyId}>
           {(props) => (
-            <select {...props} defaultValue={lot?.propertyId ?? ""} disabled={Boolean(lot)}>
+            <select {...props} defaultValue={value("propertyId", "propertyId")} disabled={Boolean(lot)}>
               <option value="" disabled>
                 Choose a property…
               </option>
@@ -73,7 +108,7 @@ export function LotForm({
               {...props}
               type="text"
               inputMode="numeric"
-              defaultValue={lot?.lotNumber ?? defaultLotNumber}
+              defaultValue={value("lotNumber", "lotNumber", String(defaultLotNumber))}
             />
           )}
         </Field>
@@ -90,7 +125,7 @@ export function LotForm({
             hint="The opening bid, published to everyone."
           >
             {(props) => (
-              <input {...props} type="text" inputMode="decimal" defaultValue={lot?.startingPriceMajor ?? ""} />
+              <input {...props} type="text" inputMode="decimal" defaultValue={value("startingPriceMinor", "startingPriceMajor")} />
             )}
           </Field>
 
@@ -101,13 +136,13 @@ export function LotForm({
             hint="Never leaves the server. Convention is ~110% of guide — higher is how lots go unsold."
           >
             {(props) => (
-              <input {...props} type="text" inputMode="decimal" defaultValue={lot?.reservePriceMajor ?? ""} />
+              <input {...props} type="text" inputMode="decimal" defaultValue={value("reservePriceMinor", "reservePriceMajor")} />
             )}
           </Field>
 
           <Field name="bidIncrementMinor" label="Bid increment (optional)" error={errors.bidIncrementMinor}>
             {(props) => (
-              <input {...props} type="text" inputMode="decimal" defaultValue={lot?.bidIncrementMajor ?? ""} />
+              <input {...props} type="text" inputMode="decimal" defaultValue={value("bidIncrementMinor", "bidIncrementMajor")} />
             )}
           </Field>
 
@@ -117,7 +152,7 @@ export function LotForm({
                 {...props}
                 type="text"
                 inputMode="decimal"
-                defaultValue={lot?.depositRequiredMajor ?? ""}
+                defaultValue={value("depositRequiredMinor", "depositRequiredMajor")}
               />
             )}
           </Field>
@@ -134,19 +169,19 @@ export function LotForm({
           hint="Convention is 21 days of preview, then 5 days of bidding."
         >
           {(props) => (
-            <input {...props} type="datetime-local" defaultValue={lot?.previewStartsAt ?? ""} />
+            <input {...props} type="datetime-local" defaultValue={value("previewStartsAt", "previewStartsAt")} />
           )}
         </Field>
 
         <div className="admin-grid-2">
           <Field name="biddingOpensAt" label="Bidding opens" error={errors.biddingOpensAt}>
             {(props) => (
-              <input {...props} type="datetime-local" defaultValue={lot?.biddingOpensAt ?? ""} />
+              <input {...props} type="datetime-local" defaultValue={value("biddingOpensAt", "biddingOpensAt")} />
             )}
           </Field>
           <Field name="scheduledCloseAt" label="Scheduled close" error={errors.scheduledCloseAt}>
             {(props) => (
-              <input {...props} type="datetime-local" defaultValue={lot?.scheduledCloseAt ?? ""} />
+              <input {...props} type="datetime-local" defaultValue={value("scheduledCloseAt", "scheduledCloseAt")} />
             )}
           </Field>
         </div>

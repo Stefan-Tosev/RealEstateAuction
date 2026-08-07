@@ -223,6 +223,61 @@ test("validation refuses a half-translated listing", async ({ page }) => {
   ).toBe(0);
 });
 
+test("a rejected property form keeps everything else the operator typed", async ({ page }) => {
+  /*
+   * React 19 resets an uncontrolled form once its action completes, so a
+   * validation failure used to empty the whole listing. On a form this
+   * long that is an afternoon, and retyping prices and descriptions from
+   * memory is how a different mistake gets introduced.
+   *
+   * It went unnoticed for months because no test ever re-submitted a form
+   * after an error. This one does.
+   */
+  await signInAsAuctioneer(page);
+  await page.goto("/admin/properties/new");
+
+  await page.getByLabel("Slug").fill("e2e-form-reset-check");
+  await page.getByLabel("Title (BG)").fill("Заглавие на български");
+  await page.getByLabel("Description (BG)").fill("Описание на български.");
+  await page.getByLabel("Description (EN)").fill("English description.");
+  await page.getByLabel("Address").fill("ул. Тестова 9");
+  await page.getByLabel("City").fill("Пловдив");
+  await page.getByLabel("Region").fill("Пловдив");
+  await page.getByLabel("Rooms").fill("4");
+  await page.getByLabel("Property type").selectOption("house");
+
+  // Title (EN) deliberately left empty — the form must come back with a
+  // complaint about that field and nothing else lost.
+  await page.getByRole("button", { name: "Create property" }).click();
+  await expect(page.getByText("English title is required.")).toBeVisible();
+
+  for (const [label, expected] of [
+    ["Slug", "e2e-form-reset-check"],
+    ["Title (BG)", "Заглавие на български"],
+    ["Description (BG)", "Описание на български."],
+    ["Address", "ул. Тестова 9"],
+    ["City", "Пловдив"],
+    ["Rooms", "4"],
+  ] as const) {
+    await expect(page.getByLabel(label), label).toHaveValue(expected);
+  }
+
+  /*
+   * The selects specifically. React restores a <select> to its MOUNT-time
+   * defaultValue, so echoing a submitted value into defaultValue does
+   * nothing — they have to be controlled, and only an assertion catches
+   * the difference.
+   */
+  await expect(page.getByLabel("Property type")).toHaveValue("house");
+
+  // And fixing only the offending field is enough to get through.
+  await page.getByLabel("Title (EN)").fill("English title");
+  await page.getByRole("button", { name: "Create property" }).click();
+  await expect(page).toHaveURL(/\/admin\/properties$/);
+
+  await prisma.property.deleteMany({ where: { slug: "e2e-form-reset-check" } });
+});
+
 test("validation refuses a duplicate slug", async ({ page }) => {
   await signInAsAuctioneer(page);
   await page.goto("/admin/properties/new");
@@ -320,6 +375,30 @@ test("an operator can create a lot", async ({ page }) => {
   expect(lot.startingPriceMinor).toBe(25_000_000n);
   expect(lot.reservePriceMinor).toBe(27_000_000n);
   expect(lot.status).toBe("DRAFT");
+});
+
+test("a rejected lot form keeps the prices and dates already entered", async ({ page }) => {
+  /*
+   * The same reset, on the fields where retyping is most dangerous: a
+   * price or a close date re-entered from memory is exactly where a
+   * different number creeps in.
+   */
+  await signInAsAuctioneer(page);
+  const property = await prisma.property.findFirstOrThrow({ where: { slug: SLUG } });
+
+  await page.goto("/admin/lots/new");
+  await page.getByLabel("Property").selectOption(property.id);
+  await page.getByLabel("Lot number").fill("777");
+  await page.getByLabel("Guide price").fill("123000");
+  // Below the guide — refused by the cross-field rule.
+  await page.getByLabel("Reserve price").fill("1000");
+
+  await page.getByRole("button", { name: "Create lot" }).click();
+  await expect(page.getByText(/reserve/i).first()).toBeVisible();
+
+  await expect(page.getByLabel("Lot number")).toHaveValue("777");
+  await expect(page.getByLabel("Guide price")).toHaveValue("123000");
+  await expect(page.getByLabel("Property")).toHaveValue(property.id);
 });
 
 test("a reserve below the guide price is refused", async ({ page }) => {

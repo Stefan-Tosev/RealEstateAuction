@@ -122,18 +122,6 @@ workflow to record one.
 
 ## 3. Code, still open
 
-### 3.1a Admin forms lose their contents on a validation failure
-
-React 19 resets an uncontrolled form once its action completes, so a
-rejected field empties everything else the operator typed. On a property
-form that is a genuinely bad afternoon.
-
-Fixed on the seller form, by echoing the submitted values back through
-`FormState.values` and reading them in preference to the stored record.
-The **property and lot forms still have it** — they are longer, so it
-costs more there. It went unnoticed because no test re-submitted a form
-after an error; the seller spec does, which is how it surfaced.
-
 ### 3.2 Invoices are printed, not emailed
 
 Invoices can now be raised, settled and cancelled, with gapless numbering

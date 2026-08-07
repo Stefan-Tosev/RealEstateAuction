@@ -96,6 +96,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Create the shadow database the drift check replays into
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres \
+            -c "CREATE DATABASE auction_shadow"
+
       - name: Apply migrations
         # deploy, not dev: dev would try to author a migration when the
         # schema and the migration history disagree, and prompt for a name.
@@ -109,6 +114,24 @@ jobs:
         # stores dates as offsets from seed time, so this is also what
         # keeps the lots from looking closed before a test opens them.
         run: npm run db:seed
+
+      - name: Schema and migrations must agree
+        # Drift is silent. The migrations and prisma/schema.prisma can
+        # describe different databases for weeks, and the first symptom is
+        # somebody regenerating a migration and getting a diff nobody
+        # expected — or a constraint behaving unlike the schema says.
+        #
+        # Found three real differences the day this check was added,
+        # including a money column carrying DEFAULT 0 and a foreign key
+        # whose declared behaviour would have violated a check constraint.
+        run: |
+          npx prisma migrate diff \
+            --from-migrations prisma/migrations \
+            --to-schema-datamodel prisma/schema.prisma \
+            --shadow-database-url "$DATABASE_URL_SHADOW" \
+            --exit-code
+        env:
+          DATABASE_URL_SHADOW: postgresql://postgres:postgres@localhost:5432/auction_shadow
 
       - name: Typecheck
         run: npm run typecheck

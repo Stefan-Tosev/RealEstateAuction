@@ -48,6 +48,25 @@ export type FormState = {
   values?: Record<string, string>;
 } | undefined;
 
+/**
+ * The text fields as submitted, so a form can re-fill itself.
+ *
+ * React 19 resets an uncontrolled form once its action completes. On a
+ * validation failure that empties everything the operator typed — on a
+ * property listing, a genuinely bad afternoon. Every rejection path below
+ * therefore carries the submission back with it.
+ *
+ * Files are skipped: an <input type="file"> cannot be re-populated from
+ * script anyway, and stringifying one would put "[object File]" in a box.
+ */
+function submittedValues(formData: FormData): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === "string") values[key] = value;
+  }
+  return values;
+}
+
 /** Turn thrown authorization/validation failures into renderable state. */
 function toFormState(error: unknown): FormState {
   if (error instanceof AuthorizationError) return { message: error.message };
@@ -63,12 +82,14 @@ export async function savePropertyAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const values = submittedValues(formData);
+
   let slug: string;
   try {
     const actor = await requireAdmin();
 
     const parsed = propertySchema.safeParse(Object.fromEntries(formData));
-    if (!parsed.success) return { errors: fieldErrors(parsed.error) };
+    if (!parsed.success) return { errors: fieldErrors(parsed.error), values };
 
     // The slug is a public URL; a collision is a validation failure, not
     // a 500, so it is checked rather than caught from the unique index.
@@ -76,7 +97,7 @@ export async function savePropertyAction(
       where: { slug: parsed.data.slug, ...(propertyId ? { NOT: { id: propertyId } } : {}) },
       select: { id: true },
     });
-    if (clash) return { errors: { slug: "That slug is already in use." } };
+    if (clash) return { errors: { slug: "That slug is already in use." }, values };
 
     const property = propertyId
       ? await updateProperty(actor, propertyId, parsed.data)
@@ -84,7 +105,7 @@ export async function savePropertyAction(
 
     slug = property.slug;
   } catch (error) {
-    return toFormState(error);
+    return { ...toFormState(error), values };
   }
 
   // redirect() throws, so it must sit outside the try.
@@ -178,11 +199,13 @@ export async function saveLotAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const values = submittedValues(formData);
+
   try {
     const actor = await requireAdmin();
 
     const parsed = lotSchema.safeParse(Object.fromEntries(formData));
-    if (!parsed.success) return { errors: fieldErrors(parsed.error) };
+    if (!parsed.success) return { errors: fieldErrors(parsed.error), values };
 
     if (lotId) {
       /*
@@ -202,13 +225,13 @@ export async function saveLotAction(
         select: { id: true },
       });
       if (clash) {
-        return { errors: { lotNumber: "That property already has a lot with this number." } };
+        return { errors: { lotNumber: "That property already has a lot with this number." }, values };
       }
 
       await createLot(actor, parsed.data);
     }
   } catch (error) {
-    return toFormState(error);
+    return { ...toFormState(error), values };
   }
 
   revalidatePath("/admin/lots");

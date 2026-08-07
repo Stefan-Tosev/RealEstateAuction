@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { saveSellerAction } from "../../seller-actions";
 import type { FormState } from "../../catalogue-actions";
 import { Field } from "../../_components/field";
@@ -40,12 +40,29 @@ export function SellerForm({ seller }: { seller: SellerFormValues | null }) {
    */
   const value = (key: keyof SellerFormValues) => state?.values?.[key] ?? seller?.[key] ?? "";
 
+  /*
+   * Remount the form after every action result.
+   *
+   * React resets an uncontrolled form once its action completes, and a
+   * re-render does not undo that: defaultValue is only read at mount, and
+   * a controlled field desyncs because the reset changes the DOM without
+   * changing any state, so nothing re-renders to correct it.
+   *
+   * Bumping a key sidesteps the whole argument. A fresh mount reads every
+   * defaultValue again — and those now come from what was submitted, so
+   * the form comes back exactly as the operator left it.
+   */
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (state) setAttempt((n) => n + 1);
+  }, [state]);
+
   // Company fields are only meaningful for a company, and an ЕИК box on
   // a private seller's record invites somebody to put something in it.
-  const [kind, setKind] = useState(seller?.kind ?? "individual");
+  const [kind, setKind] = useState(String(value("kind")) || "individual");
 
   return (
-    <form className="admin-form" action={formAction} noValidate>
+    <form key={attempt} className="admin-form" action={formAction} noValidate>
       {state?.message ? (
         <p className="admin-notice" data-tone="error" role="alert">
           {state.message}
@@ -56,7 +73,7 @@ export function SellerForm({ seller }: { seller: SellerFormValues | null }) {
         {(props) => (
           <select
             {...props}
-            defaultValue={state?.values?.kind ?? kind}
+            value={kind}
             onChange={(event) => setKind(event.currentTarget.value)}
           >
             <option value="individual">A private person</option>

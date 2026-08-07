@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { listInvoices } from "@/server/fees/invoice";
-import { issuerBlockers } from "@/server/fees/issuer";
+import { issuerBlockers, isDemoIssuer } from "@/server/fees/issuer";
 import { requireAdmin } from "@/server/identity/authz";
 import { formatMoney } from "@/lib/money";
 
@@ -25,6 +25,15 @@ export default async function InvoicesPage() {
       <div className="admin-page-head">
         <h1>Invoices</h1>
       </div>
+
+      {isDemoIssuer() ? (
+        <p className="admin-notice" data-tone="error">
+          <strong>Demo mode.</strong> Invoices carry placeholder issuer details, are marked
+          SPECIMEN, and are numbered in a separate <code>DEMO-</code> series — so real numbering
+          still starts at 1 when you put your registration in and set{" "}
+          <code>INVOICE_DEMO_MODE=false</code>.
+        </p>
+      ) : null}
 
       {missing.length > 0 ? (
         <p className="admin-notice" data-tone="error">

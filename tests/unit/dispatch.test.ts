@@ -299,3 +299,53 @@ describe("the copy itself", () => {
     expect(TEMPLATE_NAMES.sort()).toEqual(enqueued.sort());
   });
 });
+
+describe("when a message disappears mid-flight", () => {
+  /*
+   * Found by CI, not locally. vitest runs test files in parallel, and
+   * dispatchOutbox drains the WHOLE table — correctly, that is its job —
+   * so another spec cleaning up its own recipient could delete a row
+   * between this dispatcher reading it and marking it sent. The update
+   * threw and took the entire batch down with it.
+   *
+   * That is a production defect as much as a test one: a user erased
+   * under GDPR, or an operator purging, would stop every message queued
+   * behind them.
+   */
+  it("does not let a deleted row abandon the rest of the queue", async () => {
+    const sent = stubTransport();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    // One message that will be deleted underneath the dispatcher, and one
+    // that must go out regardless.
+    await enqueue({
+      userId: bgUserId,
+      channel: "email",
+      template: "outbid",
+      payload: { lotId, amountMinor: "35500000" },
+    });
+    await enqueue({
+      userId: enUserId,
+      channel: "email",
+      template: "outbid",
+      payload: { lotId, amountMinor: "35500000" },
+    });
+
+    const doomed = await prisma.outbox.findFirstOrThrow({ where: { userId: bgUserId } });
+
+    vi.spyOn(transportModule.transport, "send").mockImplementation(async (message) => {
+      sent.all.push(message);
+      // Delete it at exactly the moment the old code could not survive:
+      // after the send, before the receipt is written.
+      if (message.to.includes("bg@")) {
+        await prisma.outbox.deleteMany({ where: { id: doomed.id } });
+      }
+    });
+
+    const outcomes = await dispatchOutbox();
+
+    expect(outcomes.some((o) => o.result === "vanished")).toBe(true);
+    // The one behind it still went.
+    expect(sent.mine().some((m) => m.to.includes("en@"))).toBe(true);
+  });
+});

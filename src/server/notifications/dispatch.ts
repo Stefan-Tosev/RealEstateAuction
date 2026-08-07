@@ -31,8 +31,15 @@ function backoffMs(attempts: number): number {
 
 export type DispatchOutcome = {
   id: string;
-  result: "sent" | "retry" | "abandoned" | "unknown-template";
+  result: "sent" | "retry" | "abandoned" | "unknown-template" | "vanished";
 };
+
+/** Prisma's "record not found" — the row went while we were working on it. */
+const RECORD_NOT_FOUND = "P2025";
+
+function isMissingRecord(error: unknown): boolean {
+  return (error as { code?: string })?.code === RECORD_NOT_FOUND;
+}
 
 export async function dispatchOutbox(limit = 25): Promise<DispatchOutcome[]> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -50,7 +57,21 @@ export async function dispatchOutbox(limit = 25): Promise<DispatchOutcome[]> {
   const outcomes: DispatchOutcome[] = [];
 
   for (const { id } of due) {
-    outcomes.push(await dispatchOne(id, baseUrl));
+    /*
+     * One message must never stop the queue. A poisoned row, a deleted
+     * recipient, an unserialisable payload — whatever it is, everything
+     * queued behind it still has to go out.
+     */
+    try {
+      outcomes.push(await dispatchOne(id, baseUrl));
+    } catch (error) {
+      if (isMissingRecord(error)) {
+        outcomes.push({ id, result: "vanished" });
+        continue;
+      }
+      console.error(`[dispatch] message ${id} threw and was skipped:`, error);
+      outcomes.push({ id, result: "retry" });
+    }
   }
 
   return outcomes;
@@ -130,16 +151,22 @@ async function dispatchOne(id: string, baseUrl: string): Promise<DispatchOutcome
     const attempts = message.attempts + 1;
     const abandoned = attempts >= MAX_ATTEMPTS;
 
-    await prisma.outbox.update({
-      where: { id },
-      data: {
-        attempts,
-        // Left unsent either way. An abandoned message is excluded by
-        // the attempts ceiling rather than by pretending it was sent —
-        // the row is the evidence somebody was never told.
-        sendAfter: new Date(Date.now() + backoffMs(attempts)),
-      },
-    });
+    try {
+      await prisma.outbox.update({
+        where: { id },
+        data: {
+          attempts,
+          // Left unsent either way. An abandoned message is excluded by
+          // the attempts ceiling rather than by pretending it was sent —
+          // the row is the evidence somebody was never told.
+          sendAfter: new Date(Date.now() + backoffMs(attempts)),
+        },
+      });
+    } catch (updateError) {
+      // Gone as well. Nothing left to record the attempt against.
+      if (!isMissingRecord(updateError)) throw updateError;
+      return { id, result: "vanished" };
+    }
 
     console.error(
       `[dispatch] attempt ${attempts}/${MAX_ATTEMPTS} failed for ${message.template}:`,
@@ -149,10 +176,22 @@ async function dispatchOne(id: string, baseUrl: string): Promise<DispatchOutcome
     return { id, result: abandoned ? "abandoned" : "retry" };
   }
 
-  await prisma.outbox.update({
-    where: { id },
-    data: { sentAt: new Date(), attempts: message.attempts + 1 },
-  });
+  /*
+   * The row can disappear between the send and this update — a user
+   * erased under GDPR, an operator purging, or in the test suite another
+   * spec cleaning up a recipient it owns. The message HAS been sent, so
+   * the interesting failure would be sending it twice; losing the receipt
+   * is not worth an exception that abandons the rest of the batch.
+   */
+  try {
+    await prisma.outbox.update({
+      where: { id },
+      data: { sentAt: new Date(), attempts: message.attempts + 1 },
+    });
+  } catch (error) {
+    if (!isMissingRecord(error)) throw error;
+    return { id, result: "vanished" };
+  }
 
   return { id, result: "sent" };
 }

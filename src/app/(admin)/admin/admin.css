@@ -402,3 +402,57 @@
   line-height: 1.5;
   margin: 0;
 }
+
+/* ---------------------------------------------------
+   Invoices
+   The sheet is meant to be printed: a browser prints
+   this to PDF perfectly well, which is a great deal
+   less machinery than a rendering library — and
+   nothing to go stale when the layout changes.
+--------------------------------------------------- */
+.invoice-sheet {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  padding: 2rem;
+  margin-top: 1.5rem;
+}
+
+.invoice-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.invoice-head h2 { margin: 0 0 0.25rem; font-size: 1.1rem; letter-spacing: 0.05em; }
+.invoice-number { font-size: 1.4rem; font-weight: 600; margin: 0 0 0.5rem; }
+
+.invoice-cancelled {
+  color: var(--admin-danger, #c0392b);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.invoice-parties { display: flex; gap: 2.5rem; flex-wrap: wrap; }
+.invoice-parties h3 {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin: 0 0 0.4rem;
+}
+.invoice-parties p { margin: 0 0 0.15rem; font-size: 0.9rem; }
+
+.invoice-line-lot { opacity: 0.7; font-size: 0.85rem; }
+.invoice-total th, .invoice-total td { font-weight: 700; font-size: 1.05rem; }
+
+@media print {
+  /* Everything that is not the invoice: the shell, the nav, the buttons. */
+  .no-print,
+  .admin-shell > nav,
+  .admin-shell > header { display: none !important; }
+
+  .invoice-sheet { border: 0; padding: 0; background: #fff; color: #000; }
+}

@@ -1,3 +1,9 @@
+"use client";
+
+import { useActionState } from "react";
+import { raiseInvoiceAction } from "../../invoice-actions";
+import type { FormState } from "../../catalogue-actions";
+
 /*
  * What the auction house is owed on a lot — §10.
  *
@@ -7,9 +13,10 @@
  * summary that totalled the gross would overstate what the business
  * actually earns by a fifth.
  *
- * A server component: nothing here is interactive yet. Marking a fee
- * invoiced or paid is the next piece, and it belongs with whatever
- * raises the invoice.
+ * Fees are raised automatically at publish, close and withdrawal; what
+ * an operator does here is turn the due ones into an invoice. A fee is
+ * what somebody owes, an invoice is the document raised for it, and one
+ * invoice covers every due fee for that party on this lot.
  */
 
 export type AdminFee = {
@@ -35,11 +42,28 @@ export function FeeSummary({
   fees,
   netTotalFormatted,
   vatTotalFormatted,
+  lotId,
+  canInvoice,
 }: {
   fees: AdminFee[];
   netTotalFormatted: string;
   vatTotalFormatted: string;
+  lotId: string;
+  canInvoice: boolean;
 }) {
+  const [sellerState, raiseSeller, raisingSeller] = useActionState<FormState, FormData>(
+    raiseInvoiceAction.bind(null, lotId, "seller"),
+    undefined,
+  );
+  const [buyerState, raiseBuyer, raisingBuyer] = useActionState<FormState, FormData>(
+    raiseInvoiceAction.bind(null, lotId, "buyer"),
+    undefined,
+  );
+
+  const message = sellerState?.message ?? buyerState?.message;
+  const dueFor = (party: AdminFee["party"]) =>
+    fees.some((fee) => fee.party === party && fee.status === "due");
+
   return (
     <section>
       <h2>Fees</h2>
@@ -49,7 +73,15 @@ export function FeeSummary({
           Nothing due yet. The entry fee is raised when the lot is published; commission and
           premium when it sells.
         </p>
-      ) : (
+      ) : null}
+
+      {message ? (
+        <p className="admin-notice" role="alert">
+          {message}
+        </p>
+      ) : null}
+
+      {fees.length > 0 ? (
         <table className="admin-table">
           <thead>
             <tr>
@@ -96,7 +128,33 @@ export function FeeSummary({
             </tr>
           </tfoot>
         </table>
-      )}
+      ) : null}
+
+      {canInvoice ? (
+        <div className="admin-form-actions">
+          {dueFor("seller") ? (
+            <form action={raiseSeller}>
+              <button className="admin-btn" type="submit" disabled={raisingSeller}>
+                {raisingSeller ? "Raising…" : "Invoice the seller"}
+              </button>
+            </form>
+          ) : null}
+
+          {dueFor("buyer") ? (
+            <form action={raiseBuyer}>
+              <button className="admin-btn" type="submit" disabled={raisingBuyer}>
+                {raisingBuyer ? "Raising…" : "Invoice the buyer"}
+              </button>
+            </form>
+          ) : null}
+
+          {!dueFor("seller") && !dueFor("buyer") && fees.length > 0 ? (
+            <span className="hint">Everything here has been invoiced.</span>
+          ) : null}
+        </div>
+      ) : fees.length > 0 ? (
+        <p className="hint">Only an auctioneer can raise an invoice.</p>
+      ) : null}
     </section>
   );
 }

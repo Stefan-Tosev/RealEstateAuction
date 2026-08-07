@@ -456,3 +456,27 @@
 
   .invoice-sheet { border: 0; padding: 0; background: #fff; color: #000; }
 }
+
+/* A demo invoice must be impossible to mistake for a real one, including
+   after somebody has printed it. */
+.invoice-specimen {
+  margin: 0 0 1.5rem;
+  padding: 0.6rem 0.9rem;
+  border: 2px dashed var(--admin-danger, #c0392b);
+  border-radius: 4px;
+  color: var(--admin-danger, #c0392b);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.invoice-sheet[data-demo="true"] { border-color: var(--admin-danger, #c0392b); }
+
+@media print {
+  /* Survives the print stylesheet, which strips almost everything else. */
+  .invoice-specimen {
+    display: block !important;
+    border: 2px dashed #c0392b !important;
+    color: #c0392b !important;
+  }
+}

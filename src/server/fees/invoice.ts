@@ -2,7 +2,7 @@ import type { FeeParty } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/server/audit/record";
 import type { AdminActor } from "@/server/identity/authz";
-import { issuerBlockers } from "./issuer";
+import { invoiceSeries, issuerBlockers } from "./issuer";
 
 /*
  * Raising an invoice for the fees a party owes on a lot.
@@ -107,7 +107,11 @@ export async function raiseInvoice(
             vat: user.vat,
           }));
 
-    const series = String(new Date().getFullYear());
+    /*
+     * Demo invoices are numbered in their own series, so real numbering
+     * still starts at 1 the day it becomes real — see invoiceSeries().
+     */
+    const series = invoiceSeries();
     const number = await nextNumber(tx, series);
 
     const invoice = await tx.invoice.create({

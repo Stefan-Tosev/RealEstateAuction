@@ -8,7 +8,8 @@ import {
   markInvoicePaid,
   raiseInvoice,
 } from "@/server/fees/invoice";
-import { issuerBlockers } from "@/server/fees/issuer";
+import { DEMO_ISSUER, invoiceSeries, issuer, issuerBlockers, isDemoIssuer } from "@/server/fees/issuer";
+import { isValidEik } from "@/server/identity/validators";
 
 /*
  * Invoicing.
@@ -37,12 +38,6 @@ const createdSellerIds: string[] = [];
 let lotId = "";
 let propertyId = "";
 
-/* The auction house's own registration. Without it, nothing may be issued. */
-process.env.INVOICE_ISSUER_NAME = "Auction House EOOD";
-process.env.INVOICE_ISSUER_EIK = "831641791";
-process.env.INVOICE_ISSUER_ADDRESS = "ул. Тестова 1, София";
-process.env.INVOICE_ISSUER_IBAN = "BG00TEST00000000000000";
-
 async function cleanup() {
   const sellerIds = [...createdSellerIds];
 
@@ -59,6 +54,17 @@ async function cleanup() {
 }
 
 beforeEach(async () => {
+  /*
+   * Reset before every test. These are process-wide, and a test that
+   * flips demo mode would otherwise decide the outcome of whichever ran
+   * next — which is how a suite starts passing or failing on ordering.
+   */
+  process.env.INVOICE_DEMO_MODE = "false";
+  process.env.INVOICE_ISSUER_NAME = "Auction House EOOD";
+  process.env.INVOICE_ISSUER_EIK = "831641791";
+  process.env.INVOICE_ISSUER_ADDRESS = "ул. Тестова 1, София";
+  process.env.INVOICE_ISSUER_IBAN = "BG00TEST00000000000000";
+
   await cleanup();
 
   const admin = await prisma.adminUser.findFirstOrThrow({ select: { id: true, email: true } });
@@ -265,6 +271,9 @@ describe("the lifecycle", () => {
 
 describe("the auction house's own details", () => {
   it("refuses to issue anything without them", async () => {
+    // Demo mode fills the gaps on purpose, so it has to be off to see
+    // the refusal at all.
+    process.env.INVOICE_DEMO_MODE = "false";
     /*
      * An invoice missing the issuer's ЕИК is not a defective invoice, it
      * is not an invoice — and one already sent cannot be unsent.
@@ -282,6 +291,7 @@ describe("the auction house's own details", () => {
   });
 
   it("does not require a ДДС number, which a small business will not have", () => {
+    process.env.INVOICE_DEMO_MODE = "false";
     const saved = process.env.INVOICE_ISSUER_VAT;
     process.env.INVOICE_ISSUER_VAT = "";
     try {
@@ -289,5 +299,66 @@ describe("the auction house's own details", () => {
     } finally {
       process.env.INVOICE_ISSUER_VAT = saved;
     }
+  });
+});
+
+describe("demo mode", () => {
+  /*
+   * So invoicing can be exercised end to end before the company exists.
+   * The safeguards matter more than the convenience: a demo document
+   * that reads as real, or that quietly consumes real invoice numbers,
+   * is worse than no demo at all.
+   */
+  const enable = () => {
+    process.env.INVOICE_DEMO_MODE = "true";
+    for (const key of [
+      "INVOICE_ISSUER_NAME",
+      "INVOICE_ISSUER_EIK",
+      "INVOICE_ISSUER_ADDRESS",
+      "INVOICE_ISSUER_IBAN",
+    ]) {
+      process.env[key] = "";
+    }
+  };
+
+  it("uses an ЕИК that could never be a real company", () => {
+    /*
+     * The reason these are constants rather than generated. Any nine
+     * digits with a VALID check digit stand a fair chance of belonging to
+     * a real registered company, and putting somebody else's number on a
+     * document is not a hypothetical harm.
+     */
+    expect(isValidEik(DEMO_ISSUER.eik)).toBe(false);
+    expect(DEMO_ISSUER.name).toMatch(/DEMO/);
+    expect(DEMO_ISSUER.iban).toMatch(/DEMO/);
+    // No ДДС number invented at all — an unregistered business has none.
+    expect(DEMO_ISSUER.vat).toBe("");
+  });
+
+  it("lets an invoice be raised with nothing configured", () => {
+    enable();
+    expect(issuerBlockers()).toEqual([]);
+    expect(issuer().name).toBe(DEMO_ISSUER.name);
+  });
+
+  it("numbers demo invoices in their own series", () => {
+    /*
+     * The consequence that actually matters. Sharing a series would mean
+     * the first REAL invoice is 0000000021, with 1 to 20 existing nowhere
+     * in the accounts — a gap manufactured on purpose by the demo.
+     */
+    enable();
+    expect(invoiceSeries(new Date("2026-08-07"))).toBe("DEMO-2026");
+
+    process.env.INVOICE_DEMO_MODE = "false";
+    expect(invoiceSeries(new Date("2026-08-07"))).toBe("2026");
+  });
+
+  it("still prefers a real value once one is supplied", () => {
+    // So the switch to real details can be made one field at a time.
+    enable();
+    process.env.INVOICE_ISSUER_NAME = "Auction House EOOD";
+    expect(issuer().name).toBe("Auction House EOOD");
+    expect(issuer().eik).toBe(DEMO_ISSUER.eik);
   });
 });

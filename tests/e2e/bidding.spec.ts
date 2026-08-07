@@ -201,6 +201,34 @@ test.describe("placing a bid", () => {
     await expect(page.getByText("Bidding moves in fixed steps of €10,000.")).toBeVisible();
   });
 
+  test("tells a bidder about the premium before they commit to anything", async ({ page }) => {
+    /*
+     * The premium is billed against the winning bidder, and for a while
+     * it appeared on no public page at all. A fee somebody was never
+     * shown is a consumer-protection problem before it is a trust one,
+     * so this asserts it is visible at the moment of commitment rather
+     * than only in the terms.
+     */
+    await signIn(page, APPROVED_EMAIL);
+    await page.goto(`/en/lots/${SLUG}`);
+
+    // Beside the standing price.
+    await expect(page.getByText("+3% buyer's premium").first()).toBeVisible();
+
+    // And the actual sum, under the button that commits them.
+    await expect(
+      page.getByText(/Plus €10,350 buyer's premium \(3%, ДДС included\) — €355,350 in total/),
+    ).toBeVisible();
+  });
+
+  test("discloses it on the index and in Bulgarian too", async ({ page }) => {
+    await page.goto("/bg/lots");
+    await expect(page.getByText("+3% комисиона за купувача").first()).toBeVisible();
+
+    await page.goto(`/bg/lots/${SLUG}`);
+    await expect(page.getByText(/Купувачът дължи комисиона от 3%/)).toBeVisible();
+  });
+
   test("refuses an amount that is not the step, and records the refusal", async ({ page }) => {
     /*
      * Only a crafted request can reach this, which is exactly why it is

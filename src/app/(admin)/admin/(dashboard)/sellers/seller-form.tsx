@@ -1,0 +1,131 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import { saveSellerAction } from "../../seller-actions";
+import type { FormState } from "../../catalogue-actions";
+import { Field } from "../../_components/field";
+
+export type SellerFormValues = {
+  id: string;
+  kind: string;
+  name: string;
+  email: string;
+  phone: string;
+  eik: string;
+  vat: string;
+  address: string;
+  notes: string;
+};
+
+/*
+ * A seller record, not an account. §11 keeps sourcing admin-curated —
+ * nobody logs in as a seller in the MVP.
+ *
+ * Everything on this form is personal data held to run a transaction.
+ * It never reaches the public catalogue; the select allowlists omit it
+ * structurally and a test fails if anyone widens them.
+ */
+export function SellerForm({ seller }: { seller: SellerFormValues | null }) {
+  const action = saveSellerAction.bind(null, seller?.id ?? null);
+  const [state, formAction, isPending] = useActionState<FormState, FormData>(action, undefined);
+
+  const errors = state?.errors ?? {};
+
+  /*
+   * What to show in each box: what was just submitted if the action
+   * bounced it back, otherwise the stored record.
+   *
+   * React 19 resets an uncontrolled form after its action completes, so
+   * without this a single rejected field empties the whole form.
+   */
+  const value = (key: keyof SellerFormValues) => state?.values?.[key] ?? seller?.[key] ?? "";
+
+  // Company fields are only meaningful for a company, and an ЕИК box on
+  // a private seller's record invites somebody to put something in it.
+  const [kind, setKind] = useState(seller?.kind ?? "individual");
+
+  return (
+    <form className="admin-form" action={formAction} noValidate>
+      {state?.message ? (
+        <p className="admin-notice" data-tone="error" role="alert">
+          {state.message}
+        </p>
+      ) : null}
+
+      <Field name="kind" label="Seller is" error={errors.kind}>
+        {(props) => (
+          <select
+            {...props}
+            defaultValue={state?.values?.kind ?? kind}
+            onChange={(event) => setKind(event.currentTarget.value)}
+          >
+            <option value="individual">A private person</option>
+            <option value="company">A company</option>
+          </select>
+        )}
+      </Field>
+
+      <Field
+        name="name"
+        label={kind === "company" ? "Registered name" : "Full name"}
+        error={errors.name}
+      >
+        {(props) => <input {...props} type="text" defaultValue={value("name")} />}
+      </Field>
+
+      <div className="admin-grid-2">
+        <Field
+          name="email"
+          label="Email"
+          error={errors.email}
+          hint="Where the bid log and the invoice go."
+        >
+          {(props) => <input {...props} type="email" defaultValue={value("email")} />}
+        </Field>
+        <Field
+          name="phone"
+          label="Telephone"
+          error={errors.phone}
+          hint="The number to ring when a lot closes below reserve."
+        >
+          {(props) => <input {...props} type="tel" defaultValue={value("phone")} />}
+        </Field>
+      </div>
+
+      {kind === "company" ? (
+        <div className="admin-grid-2">
+          <Field
+            name="eik"
+            label="ЕИК"
+            error={errors.eik}
+            hint="Checked against its check digit — an invoice with a wrong one comes back."
+          >
+            {(props) => <input {...props} type="text" defaultValue={value("eik")} />}
+          </Field>
+          <Field name="vat" label="ДДС number (optional)" error={errors.vat}>
+            {(props) => <input {...props} type="text" defaultValue={value("vat")} />}
+          </Field>
+        </div>
+      ) : null}
+
+      <Field name="address" label="Address for correspondence" error={errors.address}>
+        {(props) => <input {...props} type="text" defaultValue={value("address")} />}
+      </Field>
+
+      <Field
+        name="notes"
+        label="Notes"
+        error={errors.notes}
+        hint="Who introduced them, what was agreed on the phone — whatever the next person answering will need."
+      >
+        {(props) => <textarea {...props} rows={4} defaultValue={value("notes")} />}
+      </Field>
+
+      <div className="admin-form-actions">
+        <button className="admin-btn admin-btn-primary" type="submit" disabled={isPending}>
+          {isPending ? "Saving…" : seller ? "Save changes" : "Create seller"}
+        </button>
+      </div>
+    </form>
+  );
+}

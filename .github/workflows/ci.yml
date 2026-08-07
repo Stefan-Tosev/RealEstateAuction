@@ -1,23 +1,36 @@
 name: CI
 
-# Every push, on every branch. The point is that nothing reaches main
-# without the suites having run somewhere other than one developer's
-# laptop.
+# Every push on every branch, and every pull request. The point is that
+# nothing reaches main without the suites having run somewhere other than
+# one developer's laptop.
 #
-# No `pull_request` trigger: branches here live in this repository, so the
-# push has already run CI by the time a PR exists, and adding it would
-# just run everything twice for the same commit. Add it if outside
-# contributors ever open PRs from forks, whose pushes this cannot see.
+# `pull_request` was left off at first, on the reasoning that branches
+# here live in this repository so the push has already run CI by the time
+# a PR exists. Two things overturned that:
+#
+#   1. On 2026-08-06 a push produced no run at all — GitHub Actions was
+#      mid-outage. With a required status check, a run that never happens
+#      is not a missing notification, it is a permanently unmergeable PR.
+#      Two chances to report beats one.
+#   2. The runs are not duplicates. The push run checks the branch as
+#      pushed; the pull_request run checks the branch MERGED INTO main,
+#      which is the tree that will actually exist afterwards.
+#
+# Three minutes of CI on a public repository is free. A stuck merge is not.
 on:
   push:
     branches: ["**"]
-  # So a red run can be retried after an infrastructure blip without an
+  pull_request:
+  # So a run can be retried after an infrastructure blip without an
   # empty commit.
   workflow_dispatch:
 
 concurrency:
   # A second push to the same branch cancels the first — the older run's
   # answer is about code nobody has any more.
+  #
+  # push and pull_request land in different groups because their refs
+  # differ, so both survive. That is intended: they check different trees.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 

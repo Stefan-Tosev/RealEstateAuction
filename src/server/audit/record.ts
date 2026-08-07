@@ -16,10 +16,16 @@ import { prisma } from "@/lib/prisma";
  * its own when the audit trail starts carrying weight.)
  */
 
-export type AuditEntity = "property" | "lot" | "property_image" | "admin_user";
+export type AuditEntity = "property" | "lot" | "property_image" | "admin_user" | "seller";
 
 type RecordInput = {
-  actorId: string;
+  /**
+   * Null when the actor is the system rather than a person — a
+   * negotiation window that expired on the clock, for instance. Putting
+   * an operator's name against a decision nobody made is worse than
+   * recording that nobody made it.
+   */
+  actorId: string | null;
   action: string;
   entityType: AuditEntity;
   entityId: string;

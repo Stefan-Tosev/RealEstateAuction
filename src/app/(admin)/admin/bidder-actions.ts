@@ -5,6 +5,7 @@ import { parseMoneyInput } from "@/lib/money";
 import type { DepositMethod, DepositStatus } from "@prisma/client";
 import { changeDepositStatus, recordDeposit } from "@/server/auction/deposits";
 import { decideApproval } from "@/server/identity/bidder-approvals";
+import { acceptTopBid, declineTopBid } from "@/server/auction/negotiation";
 import { AuthorizationError, requireAdmin, requireRoleFor } from "@/server/identity/authz";
 import type { FormState } from "./catalogue-actions";
 
@@ -90,4 +91,42 @@ export async function setDepositStatusAction(lotId: string, formData: FormData):
 
   await changeDepositStatus(actor, String(formData.get("depositId")), status);
   revalidatePath(`/admin/lots/${lotId}`);
+}
+
+/*
+ * The post-auction negotiation window — §10.
+ *
+ * Accepting closes the lot as sold at the top bid, below the reserve the
+ * seller agreed to. That is a commercial decision with a signature
+ * behind it, which is why it is reserved to the auctioneer and why the
+ * note is recorded: "the seller said yes on the phone" is exactly the
+ * kind of thing that has to be written down somewhere durable.
+ */
+export async function decideNegotiationAction(
+  lotId: string,
+  outcome: "accept" | "decline",
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    const actor = await requireRoleFor("lot.negotiate");
+    const notes = String(formData.get("notes") ?? "").trim() || null;
+
+    if (outcome === "accept") {
+      await acceptTopBid(actor, lotId, notes);
+    } else {
+      await declineTopBid(actor, lotId, notes);
+    }
+  } catch (error) {
+    return toFormState(error);
+  }
+
+  revalidatePath(`/admin/lots/${lotId}`);
+  revalidatePath("/admin/lots");
+  return {
+    message:
+      outcome === "accept"
+        ? "Sold at the top bid. The buyer has been told."
+        : "Closed unsold. Deposits have been released.",
+  };
 }

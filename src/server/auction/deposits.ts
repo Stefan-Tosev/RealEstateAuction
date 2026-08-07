@@ -150,3 +150,19 @@ export async function changeDepositStatus(
     after: { status },
   });
 }
+
+/**
+ * The highest accepted bid on a lot, or null if nobody bid.
+ *
+ * Lives here rather than in bidding-view because the admin needs it
+ * alongside the reserve, and bidding-view is the one place that must
+ * never see a reserve — invariant 7. Keeping the two apart is what stops
+ * a convenient shared type quietly carrying it into a public payload.
+ */
+export async function topBidForLot(lotId: string): Promise<bigint | null> {
+  const highest = await prisma.bid.aggregate({
+    where: { lotId, status: "accepted" },
+    _max: { amountMinor: true },
+  });
+  return highest._max.amountMinor ?? null;
+}

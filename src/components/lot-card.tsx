@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { URGENT_THRESHOLD_MS } from "@/lib/countdown";
 import { getDictionary } from "@/lib/i18n";
+import { premiumRateLabel } from "@/server/fees/disclosure";
 import type { Locale } from "@/lib/i18n/locales";
 import type { PublicLotSummary } from "@/server/catalogue/types";
 import { Countdown } from "./countdown";
@@ -25,6 +26,8 @@ export function LotCard({
   const t = getDictionary(locale);
   const href = `/${locale}/lots/${lot.slug}`;
   const { phase } = lot;
+
+  const premiumLabel = t.bidding.premiumShort.replace("{rate}", premiumRateLabel());
 
   /*
    * Badge choice. Computed on the server, which is safe because the page
@@ -83,6 +86,8 @@ export function LotCard({
               {lot.priceLabel === "openingBid" ? t.lot.openingBid : t.lot.currentBid}
             </span>
             <span className="lot-price">{lot.priceFormatted}</span>
+            {/* Every price a bidder sees, including this one. */}
+            <span className="lot-premium">{premiumLabel}</span>
           </div>
 
           {phase.kind === "preview" || phase.kind === "bidding" ? (

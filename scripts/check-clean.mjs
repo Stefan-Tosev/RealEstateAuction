@@ -54,6 +54,12 @@ for (const [model, label] of [
   [prisma.bidderApproval, "bidder approval"],
   [prisma.outbox, "outbox message"],
   [prisma.viewingBooking, "viewing booking"],
+  // Fees are billing records. One left behind by a spec is an invoice
+  // for a sale that never happened.
+  [prisma.fee, "fee"],
+  // Sellers are personal data. One left behind by a spec is somebody's
+  // name and telephone number sitting in a database for no reason.
+  [prisma.seller, "seller"],
 ]) {
   const count = await model.count();
   if (count > 0) problems.push(`${count} ${label}(s) left behind`);

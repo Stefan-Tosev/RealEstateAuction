@@ -59,6 +59,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   // Lots reference properties with onDelete: Restrict, so the lot goes
   // first; images would cascade but there are none.
+  await prisma.fee.deleteMany({ where: { lot: { property: { slug: SLUG } } } });
   await prisma.lot.deleteMany({ where: { property: { slug: SLUG } } });
   await prisma.property.deleteMany({ where: { slug: SLUG } });
   await prisma.$disconnect();

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { closeDueLots } from "@/server/auction/close-lots";
+import { expireNegotiationWindows } from "@/server/auction/negotiation";
 import { authoriseWorker } from "@/server/auction/worker-auth";
 
 /*
@@ -28,12 +29,21 @@ export async function POST(request: Request) {
 
   const outcomes = await closeDueLots();
 
+  /*
+   * §10's window is a promise with a deadline, so something has to
+   * enforce the deadline. An expiry is a decline nobody got round to
+   * making, and a bidder's money cannot stay held because an auctioneer
+   * was on holiday.
+   */
+  const expired = await expireNegotiationWindows();
+
   return NextResponse.json({
     closed: outcomes.filter((o) => o.result === "sold" || o.result === "unsold").length,
     reserveNotMet: outcomes.filter((o) => o.result === "reserve-not-met").length,
     // A lot a late bid extended between the scan and the lock. Not an
     // error — it is the anti-snipe guarantee working.
     extended: outcomes.filter((o) => o.result === "extended").length,
+    negotiationsExpired: expired.length,
     outcomes,
   });
 }

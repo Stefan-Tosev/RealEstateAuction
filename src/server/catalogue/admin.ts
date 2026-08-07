@@ -1,6 +1,7 @@
 import type { LotStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/server/audit/record";
+import { raiseEntryFee, raiseWithdrawalFee } from "@/server/fees/raise";
 import type { AdminActor } from "@/server/identity/authz";
 import { mediaStorage } from "@/server/storage";
 import type { LotInput, PropertyInput } from "./schemas";
@@ -181,7 +182,18 @@ export function getLot(id: string) {
   return prisma.lot.findUnique({
     where: { id },
     include: {
-      property: { select: { id: true, slug: true, titleBg: true, _count: { select: { images: true } } } },
+      property: {
+        select: {
+          id: true,
+          slug: true,
+          titleBg: true,
+          sellerId: true,
+          // Admin only. Seller details are personal data and are never
+          // selected into a public payload — see catalogue/select.ts.
+          seller: { select: { id: true, name: true, email: true, phone: true } },
+          _count: { select: { images: true } },
+        },
+      },
       reserveAgreedByAdmin: { select: { name: true, email: true } },
     },
   });
@@ -289,7 +301,12 @@ export class TransitionRefused extends Error {
 export async function changeLotStatus(actor: AdminActor, lotId: string, to: LotStatus) {
   const lot = await prisma.lot.findUniqueOrThrow({
     where: { id: lotId },
-    include: { property: { select: { _count: { select: { images: true } } } } },
+    include: {
+      property: { select: { sellerId: true, _count: { select: { images: true } } } },
+      // Kinds only. The publish gate checks that a document is present,
+      // never what it says — see publish.ts on why that line matters.
+      documents: { select: { kind: true } },
+    },
   });
 
   if (!canTransition(lot.status, to)) {
@@ -303,6 +320,8 @@ export async function changeLotStatus(actor: AdminActor, lotId: string, to: LotS
       previewStartsAt: lot.previewStartsAt,
       biddingOpensAt: lot.biddingOpensAt,
       scheduledCloseAt: lot.scheduledCloseAt,
+      documentKinds: lot.documents.map((document) => document.kind),
+      sellerId: lot.property.sellerId,
     });
     if (blockers.length > 0) {
       throw new TransitionRefused(blockers.map((b) => b.message));
@@ -316,6 +335,22 @@ export async function changeLotStatus(actor: AdminActor, lotId: string, to: LotS
       closedAt: to === "CANCELLED" ? new Date() : lot.closedAt,
     },
   });
+
+  /*
+   * §10's fees, at the moments they fall due.
+   *
+   * The entry fee is charged at publish and not at close, deliberately:
+   * its whole defence is that it is "disclosed and charged BEFORE the
+   * lot goes live, not levied as a penalty afterwards".
+   *
+   * Withdrawal is charged only when a PUBLISHED lot is pulled. A lot
+   * cancelled while still a draft cost nobody anything.
+   */
+  if (to === "PUBLISHED") {
+    await raiseEntryFee(lotId);
+  } else if (to === "CANCELLED" && lot.status !== "DRAFT") {
+    await raiseWithdrawalFee(lotId);
+  }
 
   await recordAudit({
     actorId: actor.id,

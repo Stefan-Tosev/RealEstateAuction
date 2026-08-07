@@ -226,3 +226,158 @@ test.describe("the gates open", () => {
     expect(held).toBe(1);
   });
 });
+
+test.describe("the post-auction negotiation window", () => {
+  /*
+   * RESERVE_NOT_MET used to have no onward transition at all, so the lot
+   * with a verified buyer and money already down was the one ending an
+   * operator could do nothing about. This drives the screen that fixed it.
+   */
+  const FIXTURE_LOT_NUMBER = 900_001;
+  let negotiationLotId = "";
+
+  /*
+   * Removing this fixture is three tables in a particular order, so it
+   * lives in one function that both beforeAll and afterAll call. A run
+   * that fails partway otherwise leaves the lot behind, and the next run
+   * dies on the lot_number unique constraint rather than on whatever
+   * actually broke.
+   */
+  async function removeFixtureLot() {
+    const existing = await prisma.lot.findMany({
+      where: { lotNumber: FIXTURE_LOT_NUMBER },
+      select: { id: true },
+    });
+
+    for (const { id } of existing) {
+      await prisma.fee.deleteMany({ where: { lotId: id } });
+      await prisma.deposit.deleteMany({ where: { lotId: id } });
+      await prisma.auditLog.deleteMany({ where: { entityId: id } });
+
+      // winningBidId points at the bid, so it has to let go first — and
+      // bids are append-only by trigger, which only test data may bypass.
+      await prisma.lot.update({ where: { id }, data: { winningBidId: null } });
+      await prisma.$executeRawUnsafe("ALTER TABLE bids DISABLE TRIGGER bids_append_only");
+      try {
+        await prisma.bid.deleteMany({ where: { lotId: id } });
+      } finally {
+        await prisma.$executeRawUnsafe("ALTER TABLE bids ENABLE TRIGGER bids_append_only");
+      }
+
+      await prisma.lot.delete({ where: { id } });
+    }
+  }
+
+  test.beforeAll(async () => {
+    await removeFixtureLot();
+
+    // Its own lot: the shared one carries the deposit assertions above.
+    const property = await prisma.property.findFirstOrThrow({
+      where: { slug: "kashta-stariya-grad-plovdiv" },
+      select: { id: true },
+    });
+
+    const lot = await prisma.lot.create({
+      data: {
+        propertyId: property.id,
+        lotNumber: FIXTURE_LOT_NUMBER,
+        status: "RESERVE_NOT_MET",
+        startingPriceMinor: 10_000_000n,
+        reservePriceMinor: 20_000_000n,
+        biddingOpensAt: new Date(Date.now() - 172_800_000),
+        scheduledCloseAt: new Date(Date.now() - 3600_000),
+        effectiveCloseAt: new Date(Date.now() - 3600_000),
+        closedAt: new Date(Date.now() - 3600_000),
+        negotiationEndsAt: new Date(Date.now() + 47 * 3600_000),
+      },
+      select: { id: true },
+    });
+    negotiationLotId = lot.id;
+
+    /*
+     * A real bid, because the panel's whole subject is the gap between
+     * what was bid and what the seller wanted. A lot in RESERVE_NOT_MET
+     * with no bid cannot exist — closeLot writes CLOSED_UNSOLD instead.
+     */
+    const bid = await prisma.bid.create({
+      data: {
+        lotId: negotiationLotId,
+        userId: bidderId,
+        amountMinor: 10_000_000n,
+        status: "accepted",
+        idempotencyKey: `negotiation-fixture-${Date.now()}`,
+      },
+      select: { id: true },
+    });
+    await prisma.lot.update({
+      where: { id: negotiationLotId },
+      data: { winningBidId: bid.id },
+    });
+
+    await prisma.deposit.create({
+      data: {
+        userId: bidderId,
+        lotId: negotiationLotId,
+        amountMinor: 500_000n,
+        status: "held",
+        method: "sepa",
+      },
+    });
+  });
+
+  test.afterAll(async () => {
+    await removeFixtureLot();
+  });
+
+  test("shows the gap the seller has to be talked across", async ({ page }) => {
+    await signInAsOperator(page);
+    await page.goto(`/admin/lots/${negotiationLotId}`);
+
+    await expect(page.getByRole("heading", { name: "Reserve not met" })).toBeVisible();
+    await expect(page.getByRole("row", { name: /Top bid/ })).toContainText("€100,000");
+    await expect(page.getByRole("row", { name: /Reserve/ })).toContainText("€200,000");
+    // The number the conversation is actually about.
+    await expect(page.getByRole("row", { name: /Short by/ })).toContainText("€100,000");
+  });
+
+  test("sells at the top bid when the seller accepts, and tells the buyer", async ({ page }) => {
+    await signInAsOperator(page);
+    await page.goto(`/admin/lots/${negotiationLotId}`);
+
+    await page.getByLabel("What the seller said").fill("Agreed by phone at 14:20");
+    await page.getByRole("button", { name: /Seller accepts/ }).click();
+
+    /*
+     * The panel unmounts the moment the status changes, so the
+     * confirmation cannot be a message inside it. What the operator sees
+     * instead is read back out of the lot, and is still there tomorrow.
+     */
+    await expect(page.getByText(/Sold at €100,000 after negotiation/)).toBeVisible();
+
+    const lot = await prisma.lot.findUniqueOrThrow({ where: { id: negotiationLotId } });
+    expect(lot.status).toBe("CLOSED_SOLD");
+    // Left as the seller originally agreed it — the gap is the evidence
+    // a negotiation happened.
+    expect(lot.reservePriceMinor).toBe(20_000_000n);
+    expect(lot.negotiationEndsAt).toBeNull();
+
+    // Who concluded it and what they said. This is the record that a
+    // sale below the agreed reserve was authorised.
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { entityId: negotiationLotId, action: "lot.negotiationAccepted" },
+    });
+    expect(audit.actorUserId).not.toBeNull();
+    expect(JSON.stringify(audit.after)).toContain("Agreed by phone at 14:20");
+  });
+
+  test("the outcome survives a reload; the decision form does not", async ({ page }) => {
+    await signInAsOperator(page);
+    await page.goto(`/admin/lots/${negotiationLotId}`);
+
+    await expect(page.getByRole("heading", { name: "Reserve not met" })).toHaveCount(0);
+    await expect(page.getByText(/Sold at €100,000 after negotiation/)).toBeVisible();
+    // Concluded once and only once — a second accept would release a
+    // deposit the sale is relying on.
+    await expect(page.getByRole("button", { name: /Seller accepts/ })).toHaveCount(0);
+  });
+});

@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { savePropertyAction, type FormState } from "../../catalogue-actions";
 import { Field } from "../../_components/field";
+import { CopyDrafter } from "./copy-drafter";
 
 const PROPERTY_TYPES = ["apartment", "house", "land", "commercial", "other"] as const;
 
@@ -18,6 +19,7 @@ const PROPERTY_TYPES = ["apartment", "house", "land", "commercial", "other"] as 
  */
 export type PropertyFormValues = {
   id: string;
+  sellerId: string;
   slug: string;
   titleBg: string;
   titleEn: string;
@@ -42,7 +44,15 @@ export type PropertyFormValues = {
  * and letting the browser block submission means the server rules never
  * get exercised.
  */
-export function PropertyForm({ property }: { property: PropertyFormValues | null }) {
+export function PropertyForm({
+  property,
+  copyDraftingAvailable,
+  sellers,
+}: {
+  property: PropertyFormValues | null;
+  copyDraftingAvailable: boolean;
+  sellers: { id: string; name: string }[];
+}) {
   const action = savePropertyAction.bind(null, property?.id ?? null);
   const [state, formAction, isPending] = useActionState<FormState, FormData>(action, undefined);
 
@@ -67,6 +77,24 @@ export function PropertyForm({ property }: { property: PropertyFormValues | null
           hint="Permanent public URL: /bg/lots/<slug>. Lowercase letters, numbers and hyphens."
         >
           {(props) => <input {...props} type="text" defaultValue={value("slug")} />}
+        </Field>
+
+        <Field
+          name="sellerId"
+          label="Seller"
+          error={errors.sellerId}
+          hint="Required before any lot on this property can be published — somebody has to be contactable and billable."
+        >
+          {(props) => (
+            <select {...props} defaultValue={property?.sellerId ?? ""}>
+              <option value="">Not recorded yet</option>
+              {sellers.map((seller) => (
+                <option key={seller.id} value={seller.id}>
+                  {seller.name}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
 
         <Field name="propertyType" label="Property type" error={errors.propertyType}>
@@ -102,6 +130,13 @@ export function PropertyForm({ property }: { property: PropertyFormValues | null
         <Field name="descriptionEn" label="Description (EN)" error={errors.descriptionEn}>
           {(props) => <textarea {...props} defaultValue={value("descriptionEn")} />}
         </Field>
+
+        {/*
+          Sits inside the same form so it can read the facts already
+          entered. It drafts; it never saves — a person has to have read
+          words published as the auction house's own.
+        */}
+        <CopyDrafter available={copyDraftingAvailable} />
       </fieldset>
 
       <fieldset className="admin-fieldset">

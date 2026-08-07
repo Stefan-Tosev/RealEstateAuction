@@ -734,3 +734,28 @@
   .bid-history li { flex-wrap: wrap; gap: 4px 12px; }
   .bid-history-when { flex: 1 0 100%; text-align: left; }
 }
+
+/* ---------------------------------------------------
+   Buyer's premium disclosure
+   Quiet, but never absent: it sits next to every price
+   a bidder sees, because it is not what they pay.
+--------------------------------------------------- */
+.lot-premium,
+.price-panel-premium,
+.bid-premium {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--color-ivory-dim);
+}
+
+.bid-premium { text-align: right; }
+
+.bid-premium-note {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--color-ivory);
+  border-left: 2px solid var(--color-brass);
+  padding-left: 10px;
+}

@@ -63,3 +63,28 @@ describe("publicLotDetailSelect", () => {
     expect(keys).toContain("scheduledCloseAt");
   });
 });
+
+describe("the seller guard", () => {
+  /*
+   * Seller contact details are personal data and have no business in a
+   * public catalogue payload. Same protection as the reserve, and for
+   * the same reason: the type system stops anyone READING it, and this
+   * stops anyone widening the allowlist to let it through.
+   *
+   * The harm is concrete. A seller's name and telephone number attached
+   * to a property that is about to be auctioned is exactly what someone
+   * would want in order to approach them off-platform — which is the
+   * disclosure the anonymised bidding rules exist to prevent, coming in
+   * through a different door.
+   */
+  const FORBIDDEN = ["seller", "sellerId", "email", "phone", "eik", "vat", "notes"];
+
+  for (const [name, select] of Object.entries(SELECTS)) {
+    it(`${name} exposes nothing about the seller`, () => {
+      const keys = collectKeys(select);
+      for (const forbidden of FORBIDDEN) {
+        expect(keys, `${name} must not select ${forbidden}`).not.toContain(forbidden);
+      }
+    });
+  }
+});

@@ -112,6 +112,16 @@ const optionalMajorToMinor = (label: string) =>
     .transform((v) => (v.trim().length === 0 ? null : parseMoneyInput(v)!));
 
 export const propertySchema = z.object({
+  /*
+   * Optional here, required by publishBlockers(). A property can be
+   * drafted before the seller paperwork exists; it cannot go live that
+   * way.
+   */
+  sellerId: z
+    .string()
+    .optional()
+    .transform((v) => (v ?? "").trim())
+    .transform((v) => (v.length === 0 ? null : v)),
   slug: slugSchema,
   /*
    * Both languages required, matching the schema's NOT NULL columns. A

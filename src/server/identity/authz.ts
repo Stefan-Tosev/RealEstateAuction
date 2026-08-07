@@ -98,6 +98,13 @@ export const ADMIN_ONLY_ACTIONS = [
    * with a login.
    */
   "bidder.decide",
+  /*
+   * Selling a lot below the reserve the seller agreed to. That is the
+   * auctioneer's negotiation to conclude, not an operator's data entry —
+   * and accepting binds the seller to a price they did not originally
+   * accept.
+   */
+  "lot.negotiate",
   "deposit.record",
 ] as const;
 

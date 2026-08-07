@@ -1,6 +1,11 @@
-import type { LotStatus } from "@prisma/client";
+import type { DocumentKind, LotStatus } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { allowedTransitions, canTransition, publishBlockers } from "@/server/catalogue/publish";
+import {
+  allowedTransitions,
+  canTransition,
+  publishBlockers,
+  publishWarnings,
+} from "@/server/catalogue/publish";
 
 const soon = (days: number) => new Date(Date.now() + days * 86_400_000);
 
@@ -11,6 +16,9 @@ function ready() {
     previewStartsAt: soon(1),
     biddingOpensAt: soon(22),
     scheduledCloseAt: soon(27),
+    // A complete pack. Completeness only — the check never looks inside.
+    documentKinds: ["title_deed", "encumbrances"] as DocumentKind[],
+    sellerId: "seller-id",
   };
 }
 
@@ -70,8 +78,16 @@ describe("publishBlockers", () => {
       previewStartsAt: null,
       biddingOpensAt: null,
       scheduledCloseAt: null,
+      documentKinds: [],
+      sellerId: null,
     });
-    expect(blockers.length).toBe(3);
+    expect(blockers.map((b) => b.code).sort()).toEqual([
+      "legal-pack-incomplete",
+      "no-dates",
+      "no-images",
+      "no-reserve-agreed",
+      "no-seller",
+    ]);
   });
 });
 
@@ -98,9 +114,18 @@ describe("canTransition", () => {
   });
 
   it("refuses reopening a finished lot", () => {
-    for (const from of ["CLOSED_SOLD", "CLOSED_UNSOLD", "RESERVE_NOT_MET"] as LotStatus[]) {
+    for (const from of ["CLOSED_SOLD", "CLOSED_UNSOLD"] as LotStatus[]) {
       expect(allowedTransitions(from)).toEqual([]);
     }
+  });
+
+  it("leaves an unmet reserve a way out", () => {
+    /*
+     * §10: "An unmet reserve is not a terminal state." It used to be one
+     * here — an empty list — which stranded the single ending that has a
+     * verified buyer with money already down.
+     */
+    expect(allowedTransitions("RESERVE_NOT_MET")).toEqual(["CLOSED_SOLD", "CLOSED_UNSOLD"]);
   });
 
   it("permits cancelling a live lot", () => {
@@ -120,5 +145,72 @@ describe("canTransition", () => {
       "CANCELLED",
     ];
     for (const status of all) expect(Array.isArray(allowedTransitions(status))).toBe(true);
+  });
+});
+
+describe("the legal pack gate", () => {
+  /*
+   * Completeness, never correctness. Whether a document is present is an
+   * administrative fact; whether the title is good is a legal opinion,
+   * and giving one takes on liability for defects in title on a
+   * six-figure transaction. The seller's solicitor prepares the pack and
+   * the seller warrants it; the house publishes it as agent.
+   */
+  it("refuses to publish without the two documents a bidder needs to decide", () => {
+    for (const kinds of [[], ["title_deed"], ["encumbrances"]] as DocumentKind[][]) {
+      const blockers = publishBlockers({ ...ready(), documentKinds: kinds });
+      expect(blockers.map((b) => b.code), JSON.stringify(kinds)).toContain(
+        "legal-pack-incomplete",
+      );
+    }
+  });
+
+  it("names what is missing, in both languages an operator will hear it in", () => {
+    const [blocker] = publishBlockers({ ...ready(), documentKinds: ["title_deed"] });
+    expect(blocker.message).toContain("encumbrances certificate");
+    expect(blocker.message).toContain("удостоверение за тежести");
+  });
+
+  it("publishes once both are there, whatever else the pack holds", () => {
+    const blockers = publishBlockers({
+      ...ready(),
+      documentKinds: ["title_deed", "encumbrances", "other"],
+    });
+    expect(blockers).toEqual([]);
+  });
+
+  it("warns about the transfer documents rather than blocking on them", () => {
+    /*
+     * A notary will want these before completion, but they have until
+     * completion to arrive. Blocking a sale over paperwork that is not
+     * needed to decide would hold up the sale for no protection.
+     */
+    const warnings = publishWarnings({ documentKinds: ["title_deed", "encumbrances"] });
+    expect(warnings.map((w) => w.code)).toEqual(["legal-pack-thin"]);
+    expect(warnings[0].message).toContain("Not required to publish");
+
+    // And says nothing once the pack is full.
+    expect(
+      publishWarnings({
+        documentKinds: ["title_deed", "encumbrances", "sketch", "tax_valuation"],
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("the seller gate", () => {
+  it("refuses to publish a lot whose owner nobody recorded", () => {
+    /*
+     * A live lot with no seller has nobody to telephone when it closes
+     * below reserve, nobody to bill the commission to, and nobody to
+     * send the bid log. §11 keeps sourcing admin-curated, so somebody
+     * has to have entered the record.
+     */
+    const blockers = publishBlockers({ ...ready(), sellerId: null });
+    expect(blockers.map((b) => b.code)).toContain("no-seller");
+  });
+
+  it("publishes once the seller is attached", () => {
+    expect(publishBlockers({ ...ready(), sellerId: "a-seller" })).toEqual([]);
   });
 });

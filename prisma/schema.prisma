@@ -179,6 +179,49 @@ enum AdminRole {
   @@map("admin_role")
 }
 
+enum SellerKind {
+  individual
+  company
+
+  @@map("seller_kind")
+}
+
+// Whose property it is (§11: lot sourcing is admin-curated, so this is a
+// record an operator keeps, NOT an account anyone logs into).
+//
+// The auction house needs a seller for three things it currently cannot
+// do: telephone somebody when a lot closes below reserve, put a name on
+// the commission it bills, and send the anonymised bid log the access
+// design promises after close.
+//
+// This is personal data. It is never selected into any public payload —
+// src/server/catalogue/select.ts omits it structurally, the same way it
+// omits the reserve — and the contact details exist to run a transaction,
+// not to build a marketing list.
+model Seller {
+  id          String     @id @default(uuid()) @db.Uuid
+  kind        SellerKind @default(individual)
+  // For a company, the registered name; for a person, their name.
+  name        String
+  email       String?
+  phone       String?
+  // Company registration and VAT number, for the invoice.
+  eik         String?
+  vat         String?
+  // Where invoices and correspondence go, if it differs from the property.
+  address     String?
+  // The auctioneer's own notes: who introduced them, what was agreed on
+  // the phone, anything the next person answering will need.
+  notes       String?    @db.Text
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  properties Property[]
+  fees       Fee[]
+
+  @@index([name])
+  @@map("sellers")
+}
+
 // ---------- Identity ----------
 
 // Bidder identity. Not used by platform operators — see AdminUser.
@@ -206,6 +249,7 @@ model User {
   deposits        Deposit[]
   outboxEntries   Outbox[]
   verificationTokens EmailVerificationToken[]
+  fees               Fee[]
   consents        Consent[]
 
   @@map("users")
@@ -312,6 +356,9 @@ model AdminUser {
 // The physical asset.
 model Property {
   id            String       @id @default(uuid()) @db.Uuid
+  // Nullable so a property can be drafted before the seller paperwork
+  // exists. publishBlockers() is what refuses to put it live without one.
+  sellerId      String?      @map("seller_id") @db.Uuid
   slug          String       @unique
   titleBg       String       @map("title_bg")
   titleEn       String       @map("title_en")
@@ -330,9 +377,11 @@ model Property {
   cadastralId   String?      @map("cadastral_id")
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  seller Seller?         @relation(fields: [sellerId], references: [id])
   lots   Lot[]
   images PropertyImage[]
 
+  @@index([sellerId])
   @@map("properties")
 }
 
@@ -397,6 +446,15 @@ model Lot {
   // agree the reserve, sellers do not set it unilaterally.
   reserveAgreedBy        String?   @map("reserve_agreed_by") @db.Uuid
   reserveAgreedAt        DateTime? @map("reserve_agreed_at") @db.Timestamptz(6)
+
+  // §10: an unmet reserve opens a "configurable 24-72 hours" in which the
+  // auctioneer takes the top bid to the seller. Per lot, because a
+  // motivated seller and an absent one need different windows.
+  negotiationHours       Int       @default(48) @map("negotiation_hours")
+  // Set when the lot enters RESERVE_NOT_MET. Null at every other status,
+  // which is what makes "is this window still open?" a column read rather
+  // than arithmetic over closedAt.
+  negotiationEndsAt      DateTime? @map("negotiation_ends_at") @db.Timestamptz(6)
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   property             Property      @relation(fields: [propertyId], references: [id])
@@ -415,6 +473,9 @@ model Lot {
   // index on `status` (this one's leftmost column covers it) and none on
   // `property_id` (the unique above already leads with it).
   @@index([status, effectiveCloseAt])
+  // The expiry sweep: WHERE status = 'RESERVE_NOT_MET' AND
+  // negotiation_ends_at <= now(). Same shape as the closing sweep above.
+  @@index([status, negotiationEndsAt])
   @@map("lots")
 }
 
@@ -582,18 +643,48 @@ model Outbox {
 }
 
 // §10 commercial model: entry/commission/premium/withdrawal fees.
+// What the auction house is owed on a lot (§10).
+//
+// Net and ДДС are stored separately, never as one blended amount. A
+// Bulgarian invoice has to show base and ДДС as two lines, the statutory
+// rate changes, and a business below the registration threshold charges
+// none at all — a row carrying only "3.6%" cannot reconstruct any of
+// that afterwards. The money the house keeps is netMinor; vatMinor is
+// collected for НАП and passes straight through.
 model Fee {
-  id          String    @id @default(uuid()) @db.Uuid
-  lotId       String    @map("lot_id") @db.Uuid
-  party       FeeParty
-  kind        FeeKind
-  amountMinor BigInt    @map("amount_minor")
-  basis       FeeBasis
-  rate        Decimal?  @db.Decimal(6, 4)
-  status      FeeStatus @default(due)
-  chargedAt   DateTime? @map("charged_at") @db.Timestamptz(6)
+  id        String    @id @default(uuid()) @db.Uuid
+  lotId     String    @map("lot_id") @db.Uuid
+  party     FeeParty
+  kind      FeeKind
+  // Who owes it. A buyer's premium points at the bidder; a seller fee
+  // points at the seller. Exactly one is set, and either may be null on
+  // an older row raised before the counterparty was recorded.
+  userId    String?   @map("user_id") @db.Uuid
+  sellerId  String?   @map("seller_id") @db.Uuid
 
-  lot Lot @relation(fields: [lotId], references: [id])
+  netMinor  BigInt    @map("net_minor")
+  vatMinor  BigInt    @map("vat_minor")
+  // Both rates recorded as applied, so a historical fee still reconciles
+  // after either one moves. Kept out of runtime arithmetic: the money
+  // module works in integers and writes the result here.
+  vatRate   Decimal?  @map("vat_rate") @db.Decimal(6, 4)
 
+  basis     FeeBasis
+  rate      Decimal?  @db.Decimal(6, 4)
+  // What a percentage was taken of — the hammer price. Null for fixed.
+  baseMinor BigInt?   @map("base_minor")
+
+  status    FeeStatus @default(due)
+  chargedAt DateTime? @map("charged_at") @db.Timestamptz(6)
+  note      String?
+
+  lot    Lot     @relation(fields: [lotId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id])
+  seller Seller? @relation(fields: [sellerId], references: [id])
+
+  // One fee of each kind per party per lot. Raising a second commission
+  // because a close ran twice is a billing error, not a retry.
+  @@unique([lotId, party, kind])
+  @@index([status, chargedAt])
   @@map("fees")
 }

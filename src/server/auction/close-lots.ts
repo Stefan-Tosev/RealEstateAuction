@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { enqueue } from "@/server/notifications/outbox";
 import { raiseSaleFees } from "@/server/fees/raise";
+import { sendBidLogToSeller } from "./seller-report";
 
 /*
  * Closing lots whose clock has run out — §3, "Closing a lot".
@@ -109,6 +110,13 @@ export async function closeLot(lotId: string): Promise<CloseOutcome> {
         );
       }
 
+      /*
+       * The seller is owed the record even when nothing sold — arguably
+       * especially then, because "no one bid" is the claim they are most
+       * entitled to see evidence for.
+       */
+      await sendBidLogToSeller(lotId, "CLOSED_UNSOLD", tx);
+
       return { lotId, result: "unsold" as const };
     }
 
@@ -178,6 +186,13 @@ export async function closeLot(lotId: string): Promise<CloseOutcome> {
       },
       tx,
     );
+
+    /*
+     * §3's access design, second half: "a seller sees the same public
+     * price everyone does, never bidder identities, and gets a full
+     * anonymised bid log after close."
+     */
+    await sendBidLogToSeller(lotId, metReserve ? "CLOSED_SOLD" : "RESERVE_NOT_MET", tx);
 
     return { lotId, result: metReserve ? ("sold" as const) : ("reserve-not-met" as const) };
   });

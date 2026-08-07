@@ -13,7 +13,14 @@ import { prisma } from "@/lib/prisma";
  */
 
 export type OutboxMessage = {
-  userId: string;
+  /**
+   * Exactly one recipient. A bidder is a User; a seller is not — §11
+   * keeps them a record rather than an account — so they are addressed
+   * separately, and a database check constraint enforces the "exactly
+   * one" rather than trusting every call site to remember.
+   */
+  userId?: string;
+  sellerId?: string;
   channel: NotificationChannel;
   /** Template name; the transport owns the copy. */
   template: string;
@@ -44,9 +51,17 @@ export async function enqueue(
   message: OutboxMessage,
   client: OutboxClient = prisma,
 ): Promise<void> {
+  if (Boolean(message.userId) === Boolean(message.sellerId)) {
+    // Caught here as well as by the constraint, because the error a
+    // developer sees at the call site is far more useful than a Postgres
+    // check violation surfacing from inside a transaction.
+    throw new Error("An outbox message needs exactly one of userId or sellerId.");
+  }
+
   await client.outbox.create({
     data: {
-      userId: message.userId,
+      userId: message.userId ?? null,
+      sellerId: message.sellerId ?? null,
       channel: message.channel,
       template: message.template,
       payload: message.payload as never,

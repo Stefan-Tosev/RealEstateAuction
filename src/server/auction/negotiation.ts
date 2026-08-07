@@ -3,6 +3,7 @@ import type { AdminActor } from "@/server/identity/authz";
 import { prisma } from "@/lib/prisma";
 import { enqueue } from "@/server/notifications/outbox";
 import { raiseSaleFees } from "@/server/fees/raise";
+import { sendBidLogToSeller } from "./seller-report";
 
 /*
  * The post-auction negotiation window — §10.
@@ -66,6 +67,10 @@ export async function acceptTopBid(
    */
   await releaseDeposits(lotId, lot.winningBid?.userId ?? null);
 
+  // The lot only reaches its final price here, so the report the seller
+  // received at RESERVE_NOT_MET is now out of date.
+  await sendBidLogToSeller(lotId, "CLOSED_SOLD");
+
   await recordAudit({
     actorId: actor.id,
     action: "lot.negotiationAccepted",
@@ -99,6 +104,7 @@ export async function declineTopBid(
   });
 
   await releaseDeposits(lotId, null);
+  await sendBidLogToSeller(lotId, "CLOSED_UNSOLD");
 
   await recordAudit({
     actorId: actor.id,

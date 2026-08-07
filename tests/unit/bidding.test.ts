@@ -116,6 +116,8 @@ async function cleanup() {
   }
   await prisma.lot.deleteMany({ where: { property: { slug: PREFIX + "prop" } } });
   await prisma.property.deleteMany({ where: { slug: PREFIX + "prop" } });
+  await prisma.outbox.deleteMany({ where: { seller: { name: { startsWith: PREFIX } } } });
+  await prisma.seller.deleteMany({ where: { name: { startsWith: PREFIX } } });
 }
 
 beforeEach(async () => {
@@ -1021,6 +1023,118 @@ describe("concurrency", () => {
 
     expect(await prisma.bid.count({ where: { lotId: contested, status: "accepted" } })).toBe(1);
   }, 30_000);
+});
+
+describe("the seller's bid log (§3 access design)", () => {
+  /*
+   * The second half of what place-bid.ts has promised since Phase 3: "a
+   * seller sees the same public price everyone does, never bidder
+   * identities, and gets a full anonymised bid log after close."
+   *
+   * The first half has been enforced all along. This is the part that
+   * was owed.
+   */
+  async function lotWithSeller(reserveMinor: bigint) {
+    const seller = await prisma.seller.create({
+      data: { name: `${PREFIX}seller`, email: `${PREFIX}seller@example.bg`, locale: "en" },
+      select: { id: true },
+    });
+    await prisma.property.update({
+      where: { slug: PREFIX + "prop" },
+      data: { sellerId: seller.id },
+    });
+
+    const lot = await makeLot({
+      closesInSeconds: 3600,
+      startingPriceMinor: 10_000_000n,
+      reservePriceMinor: reserveMinor,
+    });
+    return { sellerId: seller.id, lotId: lot };
+  }
+
+  it("goes to the seller, naming nobody", async () => {
+    const { sellerId, lotId: lot } = await lotWithSeller(10_000_000n);
+
+    await placeBid({ lotId: lot, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+    await placeBid({ lotId: lot, userId: bidders[1], amountMinor: 10_500_000n, idempotencyKey: key() });
+    await prisma.lot.update({
+      where: { id: lot },
+      data: { effectiveCloseAt: new Date(Date.now() - 1000) },
+    });
+    await closeLot(lot);
+
+    const message = await prisma.outbox.findFirstOrThrow({
+      where: { sellerId, template: "lot_bid_log" },
+    });
+
+    // Addressed to the seller, not to a bidder.
+    expect(message.userId).toBeNull();
+
+    const payload = message.payload as { summary: string; log: string };
+    expect(payload.summary).toContain("sold for");
+    expect(payload.log).toContain("Bidder 1");
+    expect(payload.log).toContain("Bidder 2");
+
+    /*
+     * The whole point. A seller who can tell WHO bid can approach the
+     * underbidder and complete off-platform — costing the house its
+     * commission and the buyer their protections.
+     */
+    const serialised = JSON.stringify(payload);
+    for (const id of bidders) expect(serialised).not.toContain(id);
+  });
+
+  it("is sent even when nothing sold, which is when it is most owed", async () => {
+    const { sellerId, lotId: lot } = await lotWithSeller(90_000_000n);
+
+    await prisma.lot.update({
+      where: { id: lot },
+      data: { effectiveCloseAt: new Date(Date.now() - 1000) },
+    });
+    await closeLot(lot);
+
+    const message = await prisma.outbox.findFirstOrThrow({
+      where: { sellerId, template: "lot_bid_log" },
+    });
+    const payload = message.payload as { summary: string; log: string };
+
+    expect(payload.summary).toMatch(/without a single bid/i);
+    expect(payload.log).toContain("no bids");
+  });
+
+  it("tells a seller whose reserve was missed what the market actually said", async () => {
+    const { sellerId, lotId: lot } = await lotWithSeller(90_000_000n);
+
+    await placeBid({ lotId: lot, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+    await prisma.lot.update({
+      where: { id: lot },
+      data: { effectiveCloseAt: new Date(Date.now() - 1000) },
+    });
+    await closeLot(lot);
+
+    const message = await prisma.outbox.findFirstOrThrow({
+      where: { sellerId, template: "lot_bid_log" },
+    });
+    const payload = message.payload as { summary: string };
+    expect(payload.summary).toMatch(/did not reach your reserve/i);
+  });
+
+  it("writes in the seller's language, not the site default", async () => {
+    const { sellerId, lotId: lot } = await lotWithSeller(10_000_000n);
+    await prisma.seller.update({ where: { id: sellerId }, data: { locale: "bg" } });
+
+    await placeBid({ lotId: lot, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
+    await prisma.lot.update({
+      where: { id: lot },
+      data: { effectiveCloseAt: new Date(Date.now() - 1000) },
+    });
+    await closeLot(lot);
+
+    const message = await prisma.outbox.findFirstOrThrow({
+      where: { sellerId, template: "lot_bid_log" },
+    });
+    expect((message.payload as { log: string }).log).toContain("Наддаващ");
+  });
 });
 
 describe("outbid notifications (§4)", () => {

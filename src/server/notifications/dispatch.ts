@@ -88,11 +88,24 @@ async function dispatchOne(id: string, baseUrl: string): Promise<DispatchOutcome
       // The recipient's locale, not the sender's: a Bulgarian bidder
       // outbid by an English-speaking one gets Bulgarian.
       user: { select: { email: true, locale: true } },
+      seller: { select: { email: true, locale: true } },
     },
   });
 
   // Claimed by another dispatcher between the scan and this read.
   if (!message || message.sentAt) return { id, result: "sent" };
+
+  /*
+   * Whichever of the two is set. A seller without an email address is a
+   * record somebody entered in a hurry; there is nothing to send to, and
+   * failing every attempt would just fill the log.
+   */
+  const recipient = message.user ?? message.seller;
+  if (!recipient?.email) {
+    console.error(`[dispatch] message ${id} has no deliverable address. Marking it done.`);
+    await prisma.outbox.update({ where: { id }, data: { sentAt: new Date() } });
+    return { id, result: "unknown-template" };
+  }
 
   const payload = (message.payload ?? {}) as Record<string, unknown>;
 
@@ -112,7 +125,7 @@ async function dispatchOne(id: string, baseUrl: string): Promise<DispatchOutcome
         })
       : null;
 
-  const locale = message.user.locale as Locale;
+  const locale = recipient.locale as Locale;
 
   const rendered = render(message.template, {
     locale,
@@ -143,7 +156,7 @@ async function dispatchOne(id: string, baseUrl: string): Promise<DispatchOutcome
 
   try {
     await transport.send({
-      to: message.user.email,
+      to: recipient.email,
       subject: rendered.subject,
       text: rendered.text,
     });

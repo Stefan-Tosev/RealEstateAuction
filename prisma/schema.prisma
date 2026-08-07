@@ -264,6 +264,7 @@ model User {
   verificationTokens EmailVerificationToken[]
   fees               Fee[]
   invoices           Invoice[]
+  sales              Sale[]
   consents        Consent[]
 
   @@map("users")
@@ -479,6 +480,7 @@ model Lot {
   viewings             Viewing[]
   deposits             Deposit[]
   fees                 Fee[]
+  sale                 Sale?
 
   @@unique([propertyId, lotNumber])
   // The public catalogue query is
@@ -680,6 +682,55 @@ model Invoice {
 
   @@index([status, issuedAt])
   @@map("invoices")
+}
+
+// A sale in progress: everything between "you won" and the keys.
+//
+// Until this existed the system stopped at the winning bid. The buyer got
+// an email and after that the whole completion — contract, balance,
+// notary, keys — lived on paper and in somebody's head, with no way to
+// answer "which sales are outstanding and what is each waiting on".
+//
+// The milestones are recorded as timestamps rather than as a status
+// column that something has to remember to advance. Each is a fact with
+// a date; the status is derived from them, so the two cannot disagree.
+//
+// The Bulgarian sequence this follows: preliminary contract, balance
+// paid, then the нотариален акт signed before a notary, which is the
+// transfer itself.
+model Sale {
+  id     String @id @default(uuid()) @db.Uuid
+  // One sale per lot. A second would mean the lot sold twice.
+  lotId  String @unique @map("lot_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  // The hammer price. The buyer's premium is billed separately, on its
+  // own invoice — it is the auction house's fee, not part of the price
+  // agreed for the property.
+  hammerMinor  BigInt @map("hammer_minor")
+  // The deposit already held, which counts toward the price. That is what
+  // it was taken for.
+  depositMinor BigInt @default(0) @map("deposit_minor")
+
+  completionDueAt DateTime  @map("completion_due_at") @db.Timestamptz(6)
+
+  contractSignedAt DateTime? @map("contract_signed_at") @db.Timestamptz(6)
+  balancePaidAt    DateTime? @map("balance_paid_at") @db.Timestamptz(6)
+  // The deed signed before the notary. This is the transfer.
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(6)
+  // The buyer walked away. Enforceable only if the bidder terms say the
+  // deposit may be forfeited — see docs/open-items.md.
+  defaultedAt      DateTime? @map("defaulted_at") @db.Timestamptz(6)
+
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  lot  Lot  @relation(fields: [lotId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  // The operations question: what is outstanding, and what is overdue.
+  @@index([completedAt, completionDueAt])
+  @@map("sales")
 }
 
 model AuditLog {

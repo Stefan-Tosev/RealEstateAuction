@@ -254,6 +254,12 @@ describe("when delivery fails", () => {
 describe("the copy itself", () => {
   it("renders every template in both languages", async () => {
     /*
+     * Deliberately a THIN payload — most templates are missing most of
+     * what they might want. A template that throws on an absent key takes
+     * its own message down with it, so degrading to a shorter sentence is
+     * the required behaviour, not a nicety.
+     */
+    /*
      * A template added on one side only is a message that arrives in the
      * wrong language, and nothing else would catch it — the dispatcher
      * picks the locale at send time, long after review.
@@ -316,6 +322,7 @@ describe("the copy itself", () => {
       "viewing_cancelled_by_bidder",
       "viewing_cancelled_by_house",
       "lot_bid_log",
+      "sale_next_steps",
     ];
 
     expect(TEMPLATE_NAMES.sort()).toEqual(enqueued.sort());

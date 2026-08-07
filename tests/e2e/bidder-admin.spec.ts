@@ -29,6 +29,9 @@ async function cleanup() {
     await prisma.$executeRawUnsafe("ALTER TABLE bids ENABLE TRIGGER bids_append_only");
   }
   await prisma.deposit.deleteMany({ where: { user: { email: { startsWith: PREFIX } } } });
+  // Sales before users: sales_user_id_fkey is RESTRICT, so a completion
+  // in progress will not vanish with a deleted account.
+  await prisma.sale.deleteMany({ where: { user: { email: { startsWith: PREFIX } } } });
   await prisma.bidderApproval.deleteMany({ where: { user: { email: { startsWith: PREFIX } } } });
   await prisma.outbox.deleteMany({ where: { user: { email: { startsWith: PREFIX } } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } });
@@ -250,6 +253,8 @@ test.describe("the post-auction negotiation window", () => {
     });
 
     for (const { id } of existing) {
+      // Accepting a negotiation opens a sale, which holds the lot.
+      await prisma.sale.deleteMany({ where: { lotId: id } });
       await prisma.fee.deleteMany({ where: { lotId: id } });
       await prisma.deposit.deleteMany({ where: { lotId: id } });
       await prisma.auditLog.deleteMany({ where: { entityId: id } });

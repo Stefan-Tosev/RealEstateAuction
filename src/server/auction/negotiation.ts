@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { enqueue } from "@/server/notifications/outbox";
 import { raiseSaleFees } from "@/server/fees/raise";
 import { sendBidLogToSeller } from "./seller-report";
+import { openSale } from "@/server/sales/sale";
 
 /*
  * The post-auction negotiation window — §10.
@@ -52,6 +53,8 @@ export async function acceptTopBid(
      * the reserve would be a fee on a price nobody paid.
      */
     await raiseSaleFees(lotId, lot.winningBid.amountMinor, lot.winningBid.userId);
+    // The other route to CLOSED_SOLD, and it needs a sale just as much.
+    await openSale(lotId, lot.winningBid.userId, lot.winningBid.amountMinor);
 
     await enqueue({
       userId: lot.winningBid.userId,

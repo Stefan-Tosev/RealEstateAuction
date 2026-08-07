@@ -713,9 +713,19 @@ model Outbox {
   attempts  Int                 @default(0)
   createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user   User?   @relation(fields: [userId], references: [id])
-  seller Seller? @relation(fields: [sellerId], references: [id])
+  /*
+   * Cascade, NOT the SET NULL Prisma would infer for an optional
+   * relation. Nulling either column would leave both null and violate
+   * outbox_one_recipient — the delete would fail on a check constraint,
+   * which is a baffling error to meet while erasing a user under GDPR.
+   *
+   * Cascading is also the right answer on its own terms: a queued message
+   * to somebody who no longer exists has nowhere to go.
+   */
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seller Seller? @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
+  @@index([sellerId])
   @@map("outbox")
 }
 

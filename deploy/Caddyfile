@@ -1,0 +1,68 @@
+# Caddy — TLS and reverse proxy.
+#
+# Chosen over nginx for one reason: it obtains and renews Let's Encrypt
+# certificates by itself, with no cron job and nothing to forget. An
+# expired certificate on an auction site is not a cosmetic failure —
+# browsers refuse the page outright, mid-auction.
+#
+# Install to /etc/caddy/Caddyfile, then: systemctl reload caddy
+#
+# Replace auctionhouse.bg with the real domain. The DNS A record must
+# already point at this server before Caddy starts, or the certificate
+# request fails and it will retry with a backoff.
+
+auctionhouse.bg, www.auctionhouse.bg {
+	# The app itself. Next.js listens on 3000 and is bound to localhost by
+	# the systemd unit — nothing reaches it except through here.
+	reverse_proxy 127.0.0.1:3000
+
+	encode zstd gzip
+
+	header {
+		# Sent over HTTPS only, which Caddy guarantees.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+		# The document route already sets Content-Disposition: attachment
+		# and its own CSP. This is the belt for everything else: a
+		# user-supplied PDF rendered inline from our own origin is
+		# same-origin XSS.
+		X-Content-Type-Options "nosniff"
+
+		# The catalogue has no reason to be framed by anyone.
+		X-Frame-Options "DENY"
+
+		Referrer-Policy "strict-origin-when-cross-origin"
+
+		# Nothing here needs a camera, a microphone or a location.
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+
+		-Server
+	}
+
+	# Uploaded legal packs are served through an authenticated route that
+	# re-checks entitlement per request. They must never be cached by a
+	# shared proxy on the way back.
+	@documents path /api/documents/*
+	header @documents Cache-Control "private, no-store"
+
+	log {
+		output file /var/log/caddy/auction.log {
+			roll_size 20mb
+			roll_keep 10
+		}
+		# Bidder emails and document filenames end up in query strings and
+		# paths. Keeping ten rolls rather than a year is a deliberate
+		# retention decision, not laziness.
+		format json
+	}
+}
+
+# The internal scheduler endpoints are reachable from the public
+# internet, protected only by CRON_SECRET. That is by design — a hosted
+# cron service has to reach them — but if you drive the worker from this
+# same machine (the default), there is no reason to expose them at all.
+#
+# Uncomment to close them off entirely:
+#
+# @internal path /api/internal/*
+# respond @internal 404

@@ -1,0 +1,42 @@
+[Unit]
+Description=Auction House — closing worker and mail dispatcher
+Documentation=file:///srv/auction/deploy/README.md
+# It talks to the app over HTTP, so the app has to be there. It also
+# tolerates the app being down — it logs and retries — but starting them
+# in order keeps the journal readable.
+After=network-online.target auction-app.service
+Wants=auction-app.service
+
+[Service]
+Type=simple
+User=auction
+Group=auction
+WorkingDirectory=/srv/auction
+EnvironmentFile=/srv/auction/.env
+
+# Nothing closes a lot without this running, and no queued email is ever
+# delivered. It is not optional infrastructure — it is half the product.
+ExecStart=/usr/bin/npm run worker
+
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=auction-worker
+
+# --- Hardening -------------------------------------------------------
+# Unlike the app, this writes nothing to disk. It only makes HTTP calls.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

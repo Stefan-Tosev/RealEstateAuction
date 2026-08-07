@@ -63,6 +63,8 @@ for (const [model, label] of [
   // An invoice left behind is a used number in the sequence with nothing
   // to account for it — which is exactly what the numbering guards against.
   [prisma.invoice, "invoice"],
+  // A leaked sale is a completion in progress against a lot nobody sold.
+  [prisma.sale, "sale"],
 ]) {
   const count = await model.count();
   if (count > 0) problems.push(`${count} ${label}(s) left behind`);

@@ -38,6 +38,20 @@ export type TemplateContext = {
 const str = (payload: Record<string, unknown>, key: string): string =>
   typeof payload[key] === "string" ? (payload[key] as string) : "";
 
+/**
+ * A date from the payload, or an empty string.
+ *
+ * formatDateTime throws on an unparseable value, and a template that
+ * throws takes its own message down with it. A missing date should
+ * degrade to a slightly thinner sentence, not to an undelivered email.
+ */
+const dateStr = (payload: Record<string, unknown>, key: string, locale: Locale): string => {
+  const raw = str(payload, key);
+  if (!raw) return "";
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? "" : formatDateTime(parsed, locale);
+};
+
 function lotUrl(context: TemplateContext): string {
   return context.lot ? `${context.baseUrl}/${context.locale}/lots/${context.lot.slug}` : "";
 }
@@ -156,14 +170,25 @@ const TEMPLATES: Record<string, Record<Locale, Renderer>> = {
     }),
   },
 
+  sale_next_steps: {
+    bg: (c) => ({
+      subject: `Какво следва${c.lot ? ` — лот ${c.lot.lotRef}` : ""}`,
+      text: `Поздравления,\n\n${lotLine(c)}\n\nЦена по чукче: ${formatMoney(str(c.payload, "hammerMinor") || "0", "bg")}\nВнесен депозит: ${formatMoney(str(c.payload, "depositMinor") || "0", "bg")}\nОстатък за доплащане: ${formatMoney(str(c.payload, "balanceMinor") || "0", "bg")}\n\nДепозитът ви се приспада от цената — за това е внесен.\n\nСрок за приключване: ${dateStr(c.payload, "completionDueAtIso", "bg")}\n\nСледващите стъпки са предварителен договор, плащане на остатъка и подписване на нотариален акт пред нотариус. Ще се свържем с вас с точните указания и с реквизитите за плащане.\n\nАко не приключите в срок, депозитът може да бъде задържан съгласно условията, които приехте при наддаването.${SIGN_OFF.bg}`,
+    }),
+    en: (c) => ({
+      subject: `What happens next${c.lot ? ` — lot ${c.lot.lotRef}` : ""}`,
+      text: `Congratulations,\n\n${lotLine(c)}\n\nHammer price: ${formatMoney(str(c.payload, "hammerMinor") || "0", "en")}\nDeposit already held: ${formatMoney(str(c.payload, "depositMinor") || "0", "en")}\nBalance to pay: ${formatMoney(str(c.payload, "balanceMinor") || "0", "en")}\n\nYour deposit comes off the price — that is what it was taken for.\n\nCompletion due by ${dateStr(c.payload, "completionDueAtIso", "en")}\n\nWhat follows is a preliminary contract, payment of the balance, and signing the notarial deed before a notary. We will be in touch with the exact instructions and the payment details.\n\nIf you do not complete in time, the deposit may be forfeited under the terms you accepted when bidding.${SIGN_OFF.en}`,
+    }),
+  },
+
   viewing_booked: {
     bg: (c) => ({
       subject: "Записахте се за оглед",
-      text: `Здравейте,\n\nЗапазено място за оглед на ${formatDateTime(str(c.payload, "startsAt"), "bg")}.\n\n${lotLine(c)}\n\nАко не можете да присъствате, моля отпишете се, за да освободите мястото:\n${lotUrl(c)}${SIGN_OFF.bg}`,
+      text: `Здравейте,\n\nЗапазено място за оглед на ${dateStr(c.payload, "startsAt", "bg")}.\n\n${lotLine(c)}\n\nАко не можете да присъствате, моля отпишете се, за да освободите мястото:\n${lotUrl(c)}${SIGN_OFF.bg}`,
     }),
     en: (c) => ({
       subject: "Your viewing is booked",
-      text: `Hello,\n\nA place is reserved for the viewing on ${formatDateTime(str(c.payload, "startsAt"), "en")}.\n\n${lotLine(c)}\n\nIf you cannot attend, please cancel so the place goes to someone else:\n${lotUrl(c)}${SIGN_OFF.en}`,
+      text: `Hello,\n\nA place is reserved for the viewing on ${dateStr(c.payload, "startsAt", "en")}.\n\n${lotLine(c)}\n\nIf you cannot attend, please cancel so the place goes to someone else:\n${lotUrl(c)}${SIGN_OFF.en}`,
     }),
   },
 

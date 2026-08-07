@@ -16,7 +16,7 @@ import { prisma } from "@/lib/prisma";
  * its own when the audit trail starts carrying weight.)
  */
 
-export type AuditEntity = "property" | "lot" | "property_image" | "admin_user" | "seller" | "invoice";
+export type AuditEntity = "property" | "lot" | "property_image" | "admin_user" | "seller" | "invoice" | "sale";
 
 type RecordInput = {
   /**

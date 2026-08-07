@@ -112,11 +112,12 @@ Separately: decide now whether you quote fees inclusive or exclusive of
 ("3.6%"); the system stores net. Both are right; mixing them in customer-
 facing copy is not.
 
-### 2.4 Deposit forfeiture
+### 2.4 Deposit forfeiture rests entirely on the terms
 
-The schema supports `forfeited` and nothing uses it. A forfeited deposit
-is only enforceable if the bidder terms say so (see 1.2), and there is no
-workflow to record one.
+Recording a forfeiture is built — a defaulted sale forfeits the deposit,
+with a reason and a named operator against it. What is NOT built, because
+it cannot be, is the right to keep the money. That exists only if the
+bidder terms say so (see 1.2), and they do not yet exist.
 
 ---
 
@@ -132,19 +133,15 @@ it themselves.
 The outbox can already address a seller, so the missing piece is a
 template and a PDF (or a signed link to the existing page).
 
-### 3.3 What happens between "you won" and the keys
+### 3.4 No operations view of LIVE lots
 
-The winner gets an email. After that the system has nothing: no payment
-instructions, no completion tracking, no way to see which sales are
-outstanding. Currently entirely off-system.
+Sales in progress now have one — /admin/sales answers what is
+outstanding, what each is waiting on, and what is overdue.
 
-### 3.4 No operations view
-
-Extension is uncapped by design, so a lot scheduled to close at 18:00 can
-close at 19:30. That is the correct behaviour, but an auctioneer cannot
-currently see which lots are in extension, how many extensions deep, or
-get an alert when one runs long. A long endgame is an operations problem
-and deserves an operations answer.
+What is still missing is the same for lots mid-auction. Extension is
+uncapped by design, so a lot scheduled to close at 18:00 can close at
+19:30; an auctioneer cannot see which lots are in extension, how many
+extensions deep, or get an alert when one runs long.
 
 ### 3.5 The rate limiter is per-instance
 

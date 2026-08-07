@@ -200,6 +200,8 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
           fees.reduce((total, fee) => total + fee.netMinor, 0n),
           "en",
         )}
+        lotId={lot.id}
+        canInvoice={canPerform(actor.role, "deposit.record")}
         vatTotalFormatted={formatMoney(
           fees.reduce((total, fee) => total + fee.vatMinor, 0n),
           "en",

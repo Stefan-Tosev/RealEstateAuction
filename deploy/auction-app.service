@@ -1,0 +1,52 @@
+[Unit]
+Description=Auction House — web application
+Documentation=file:///srv/auction/deploy/README.md
+# Postgres runs on the same box. Without this the app starts first after a
+# reboot, fails to connect, and systemd restarts it in a loop until the
+# database happens to be up.
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=auction
+Group=auction
+WorkingDirectory=/srv/auction
+
+# Everything secret lives here, root-owned and readable only by the
+# service user. It is NOT in the repository and never should be.
+EnvironmentFile=/srv/auction/.env
+
+ExecStart=/usr/bin/npm run start
+
+# Restart on any exit, not just failure: a clean exit from a web server
+# is still a site that is down.
+Restart=always
+RestartSec=5
+# If it fails five times in a minute, stop and leave it stopped. A crash
+# loop that keeps restarting hides the cause and fills the disk with logs.
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Journald, so `journalctl -u auction-app` is the one place to look.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=auction-app
+
+# --- Hardening -------------------------------------------------------
+# The app writes uploaded photographs and legal packs to disk, so it
+# cannot have a read-only filesystem — but it has no business anywhere
+# except its own directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/auction/media /srv/auction/private /srv/auction/.next
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

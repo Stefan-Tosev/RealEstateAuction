@@ -23,7 +23,7 @@ npm run worker         # closing worker; nothing closes lots without it
 npm run clean          # clear .next
 ```
 
-PostgreSQL must be running on `localhost:5432` — the e2e suite hits the real database.
+PostgreSQL must be running on `localhost:5432` — the e2e suite hits the real database. `docker compose up -d` provides one with credentials already matching `.env`; **`docs/running-locally.md`** is the step-by-step from a machine with nothing installed.
 
 **Run `npm run clean` when switching between the dev and prod e2e suites.** The prod run leaves a production build in `.next`, and the dev run then recompiles from it slowly enough to produce dozens of spurious failures.
 

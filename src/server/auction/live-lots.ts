@@ -1,4 +1,5 @@
 import type { LotStatus } from "@prisma/client";
+import { keysWhere } from "@/lib/exhaustive";
 import { prisma } from "@/lib/prisma";
 
 /*
@@ -16,8 +17,26 @@ import { prisma } from "@/lib/prisma";
  * break the anti-snipe guarantee bidders were given.
  */
 
-/** Only these two are mid-auction. Everything else is before or after. */
-export const LIVE_STATUSES: LotStatus[] = ["BIDDING_OPEN", "EXTENDING"];
+/*
+ * Only these two are mid-auction. Everything else is before or after.
+ *
+ * A Record rather than an array: a new LotStatus that belongs here would
+ * otherwise be missing from this page silently, and this page is the one
+ * that exists to make silent failures visible.
+ */
+const IS_LIVE: Record<LotStatus, boolean> = {
+  BIDDING_OPEN: true,
+  EXTENDING: true,
+
+  DRAFT: false,
+  PUBLISHED: false,
+  CANCELLED: false,
+  RESERVE_NOT_MET: false,
+  CLOSED_SOLD: false,
+  CLOSED_UNSOLD: false,
+};
+
+export const LIVE_STATUSES = keysWhere(IS_LIVE);
 
 /**
  * How far past its scheduled close a lot has to be before it is worth an

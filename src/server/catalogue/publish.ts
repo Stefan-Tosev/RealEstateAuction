@@ -176,6 +176,45 @@ export function canTransition(from: LotStatus, to: LotStatus): boolean {
   return ALLOWED_TRANSITIONS[from].includes(to);
 }
 
+/*
+ * Whether the publish checklist still has anything useful to say.
+ *
+ * Publish blockers are pre-flight advice about getting a lot live. Once
+ * bidding has started or the lot has finished they are noise on a page
+ * somebody opened for a different reason — a CLOSED_SOLD lot announcing
+ * that no auctioneer agreed its reserve is answering a question nobody
+ * asked.
+ *
+ * NOT derived by walking ALLOWED_TRANSITIONS, though that was the first
+ * attempt. PUBLISHED genuinely is reachable from BIDDING_OPEN — cancel
+ * the live lot, return it to draft, publish it again — so a reachability
+ * walk calls a lot people are actively bidding on "still publishable".
+ * That path is a recovery route, not a reason to show a checklist.
+ *
+ * A Record rather than a list, so a new LotStatus is a compile error
+ * here instead of a silently wrong answer.
+ */
+const CHECKLIST_APPLIES: Record<LotStatus, boolean> = {
+  DRAFT: true,
+  // Live, but still recallable to draft. A blocker that appears now — a
+  // photograph deleted, the seller detached — is worth showing.
+  PUBLISHED: true,
+  // Withdrawn, and its only way out is back to DRAFT, so the checklist
+  // is forward-looking again.
+  CANCELLED: true,
+
+  // Bidding has started, or it is over. Publishing is behind this lot.
+  BIDDING_OPEN: false,
+  EXTENDING: false,
+  RESERVE_NOT_MET: false,
+  CLOSED_SOLD: false,
+  CLOSED_UNSOLD: false,
+};
+
+export function publishChecklistApplies(status: LotStatus): boolean {
+  return CHECKLIST_APPLIES[status];
+}
+
 export function allowedTransitions(from: LotStatus): LotStatus[] {
   return ALLOWED_TRANSITIONS[from];
 }

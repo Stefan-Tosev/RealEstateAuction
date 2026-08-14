@@ -19,7 +19,7 @@ import type { PublicLotDetail, PublicLotSummary } from "./types";
  */
 export async function listPublicLots(locale: Locale): Promise<PublicLotSummary[]> {
   const rows = await prisma.lot.findMany({
-    where: { status: { in: [...LISTABLE_LOT_STATUSES] } },
+    where: { status: { in: LISTABLE_LOT_STATUSES } },
     select: publicLotSummarySelect,
     orderBy: [{ effectiveCloseAt: { sort: "asc", nulls: "last" } }, { lotNumber: "asc" }],
   });
@@ -38,7 +38,7 @@ export async function getPublicLotBySlug(
   const row = await prisma.lot.findFirst({
     where: {
       property: { slug },
-      status: { in: [...DETAIL_VISIBLE_LOT_STATUSES] },
+      status: { in: DETAIL_VISIBLE_LOT_STATUSES },
     },
     select: publicLotDetailSelect,
     orderBy: { lotNumber: "desc" },
@@ -55,7 +55,7 @@ export async function listSimilarLots(
 ): Promise<PublicLotSummary[]> {
   const rows = await prisma.lot.findMany({
     where: {
-      status: { in: [...LISTABLE_LOT_STATUSES] },
+      status: { in: LISTABLE_LOT_STATUSES },
       property: {
         propertyType: lot.propertyType,
         slug: { not: lot.slug },

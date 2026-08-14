@@ -828,3 +828,31 @@ model Fee {
   @@index([status, chargedAt])
   @@map("fees")
 }
+
+/*
+ * Rate-limit hits, one row per attempt.
+ *
+ * Was an in-memory Map, which held for exactly one box: a second app
+ * instance meant a second set of counters, and an attacker got the limit
+ * once per instance. Postgres rather than Redis because the database is
+ * already here — a limiter is not worth a new piece of infrastructure to
+ * run, back up and monitor.
+ *
+ * The key is an HMAC, never a raw address (docs/server-validation.md §6):
+ * a limiter holding every address that ever tried to register is a
+ * plaintext user list waiting to be dumped.
+ *
+ * A row per hit rather than a counter column, because the windows slide.
+ * "Five in the last hour" cannot be answered by a counter that resets on
+ * the hour — that lets ten through either side of the boundary.
+ */
+model RateLimitHit {
+  id    BigInt   @id @default(autoincrement())
+  key   String
+  hitAt DateTime @default(now()) @map("hit_at") @db.Timestamptz(6)
+
+  // Every read is "rows for this key inside this window"; eviction
+  // sweeps the same index by time.
+  @@index([key, hitAt])
+  @@map("rate_limit_hits")
+}

@@ -6,6 +6,9 @@ import { logoutAction } from "../actions";
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", enabled: true },
   { label: "Lots", href: "/admin/lots", enabled: true },
+  // Lots mid-auction. Next to Lots rather than under it: what is running
+  // now is a different question from the catalogue.
+  { label: "Live", href: "/admin/live", enabled: true },
   { label: "Properties", href: "/admin/properties", enabled: true },
   { label: "Sellers", href: "/admin/sellers", enabled: true },
   { label: "Bidders", href: "/admin/bidders", enabled: true },

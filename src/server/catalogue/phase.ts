@@ -1,5 +1,6 @@
 import type { LotStatus } from "@prisma/client";
 import { formatDateTime } from "@/lib/datetime";
+import { assertNever } from "@/lib/exhaustive";
 import type { Locale } from "@/lib/i18n/locales";
 import type { LotPhase } from "./types";
 
@@ -51,10 +52,25 @@ export function derivePhase(lot: PhaseInput, locale: Locale): LotPhase {
           }
         : { kind: "scheduled" };
 
-    default:
+    /*
+     * Listed rather than left to a `default`, which is the dangerous
+     * shape here: a new status added for some phase *before* bidding
+     * would have fallen into it and rendered a live lot as closed —
+     * countdown gone, no bid affordance, and nothing reporting a fault.
+     */
+    case "RESERVE_NOT_MET":
+    case "CLOSED_SOLD":
+    case "CLOSED_UNSOLD":
+    // Neither is publicly resolvable (see statuses.ts), so these two are
+    // unreachable from the catalogue. Answered anyway, because "closed"
+    // is the safe reading of a lot nobody may look at.
+    case "DRAFT":
+    case "CANCELLED":
       return {
         kind: "closed",
         closedAtFormatted: lot.closedAt ? formatDateTime(lot.closedAt, locale) : null,
       };
   }
+
+  return assertNever(lot.status, "LotStatus in derivePhase");
 }

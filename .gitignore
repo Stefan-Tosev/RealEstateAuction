@@ -6,6 +6,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Claude Code. The skills in .claude/skills/ are shared and committed;
+# settings.local.json is this machine's own permission grants and is not.
+.claude/settings.local.json
+
 # Logs
 *.log
 

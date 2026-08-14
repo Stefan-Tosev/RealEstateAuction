@@ -411,6 +411,6 @@ uptime checks and error tracking both have free tiers. Until then,
 `journalctl` and a look at `/admin/sales` will tell you more than a
 dashboard would.
 
-**The rate limiter is per-process.** It holds for one machine, which is
-this one. The day there are two, it has to move to Redis or Postgres —
-flagged in the code and in `docs/open-items.md`.
+**No shared cache.** The rate limiter is in Postgres, so it already
+survives a restart and would hold across two machines. Nothing else here
+keeps state a second process would need.

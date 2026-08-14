@@ -45,7 +45,7 @@ export async function placeBidAction(
    * Checked before anything is written: the whole point is that a
    * flood must not reach the bids table.
    */
-  if (hit("bid", bidder.id, LIMITS.bidsPerUserMinute)) {
+  if (await hit("bid", bidder.id, LIMITS.bidsPerUserMinute)) {
     return { ok: false, code: "errorTooFast" };
   }
 

@@ -67,9 +67,9 @@ export async function POST(request: Request) {
    * says nothing about whether any address exists.
    */
   const limited =
-    (ip ? hit("reg:ip:hour", ip, LIMITS.registrationPerIpHour) : false) ||
-    (ip ? hit("reg:ip:day", ip, LIMITS.registrationPerIpDay) : false) ||
-    (email ? hit("reg:email:hour", email, LIMITS.registrationPerEmailHour) : false);
+    (ip ? await hit("reg:ip:hour", ip, LIMITS.registrationPerIpHour) : false) ||
+    (ip ? await hit("reg:ip:day", ip, LIMITS.registrationPerIpDay) : false) ||
+    (email ? await hit("reg:email:hour", email, LIMITS.registrationPerEmailHour) : false);
 
   if (limited) {
     return NextResponse.json({ errors: [{ field: "_form", code: "RATE_LIMITED" }] }, {

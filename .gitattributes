@@ -1,0 +1,15 @@
+# Line endings, pinned rather than left to whatever core.autocrlf each
+# machine happens to have.
+
+* text=auto
+
+# cmd.exe seeks by byte offset. With LF endings it eats the first
+# character of every line — `setlocal` becomes `etlocal` — and the
+# failure looks like a corrupted script rather than a line-ending
+# problem. This has already cost an afternoon once.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# The deploy scripts run on Ubuntu. bash treats a trailing \r as part of
+# the argument, so a CRLF shebang line fails with "bad interpreter".
+*.sh text eol=lf

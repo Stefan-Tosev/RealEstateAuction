@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLot, listPropertyOptions } from "@/server/catalogue/admin";
-import { allowedTransitions, publishBlockers, publishWarnings } from "@/server/catalogue/publish";
+import {
+  allowedTransitions,
+  publishChecklistApplies,
+  publishBlockers,
+  publishWarnings,
+} from "@/server/catalogue/publish";
 import { requireAdmin, canPerform } from "@/server/identity/authz";
 import { LotControls } from "../lot-controls";
 import { LotForm, type LotFormValues } from "../lot-form";
@@ -88,17 +93,28 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
     timeStyle: "short",
   });
 
-  const blockers = publishBlockers({
-    reserveAgreedBy: lot.reserveAgreedBy,
-    imageCount: lot.property._count.images,
-    previewStartsAt: lot.previewStartsAt,
-    biddingOpensAt: lot.biddingOpensAt,
-    scheduledCloseAt: lot.scheduledCloseAt,
-    documentKinds: documents.map((document) => document.kind),
-    sellerId: lot.property.sellerId,
-  });
+  /*
+   * Only worth computing while the lot could still be published. On one
+   * that is live or finished these read as faults rather than as the
+   * pre-flight checklist they are.
+   */
+  const blockers = publishChecklistApplies(lot.status)
+    ? publishBlockers({
+        reserveAgreedBy: lot.reserveAgreedBy,
+        imageCount: lot.property._count.images,
+        previewStartsAt: lot.previewStartsAt,
+        biddingOpensAt: lot.biddingOpensAt,
+        scheduledCloseAt: lot.scheduledCloseAt,
+        documentKinds: documents.map((document) => document.kind),
+        sellerId: lot.property.sellerId,
+      })
+    : [];
 
-  // Advisory: the notary will want these, but not before the lot is live.
+  /*
+   * Warnings are NOT suppressed the same way. A sold lot missing its
+   * sketch or tax valuation is exactly when chasing them matters — the
+   * notary wants both before transfer.
+   */
   const warnings = publishWarnings({ documentKinds: documents.map((d) => d.kind) });
 
   const values: LotFormValues = {

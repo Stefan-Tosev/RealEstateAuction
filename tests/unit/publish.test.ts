@@ -2,6 +2,7 @@ import type { DocumentKind, LotStatus } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 import {
   allowedTransitions,
+  publishChecklistApplies,
   canTransition,
   publishBlockers,
   publishWarnings,
@@ -212,5 +213,56 @@ describe("the seller gate", () => {
 
   it("publishes once the seller is attached", () => {
     expect(publishBlockers({ ...ready(), sellerId: "a-seller" })).toEqual([]);
+  });
+});
+
+describe("whether the publish checklist applies", () => {
+  it("applies wherever publishing is still the next step", () => {
+    expect(publishChecklistApplies("DRAFT")).toBe(true);
+    // Live, but recallable to draft, so a blocker appearing now matters.
+    expect(publishChecklistApplies("PUBLISHED")).toBe(true);
+    // Withdrawn; its only way out is back to DRAFT.
+    expect(publishChecklistApplies("CANCELLED")).toBe(true);
+  });
+
+  it("does not apply once bidding has started or the lot has finished", () => {
+    for (const status of [
+      "BIDDING_OPEN",
+      "EXTENDING",
+      "RESERVE_NOT_MET",
+      "CLOSED_SOLD",
+      "CLOSED_UNSOLD",
+    ] as LotStatus[]) {
+      expect(publishChecklistApplies(status), status).toBe(false);
+    }
+  });
+
+  it("does not follow the cancel-and-redraft recovery route", () => {
+    /*
+     * The regression this replaced. PUBLISHED really is reachable from
+     * BIDDING_OPEN — cancel the live lot, return it to draft, publish it
+     * again — so deriving this by walking ALLOWED_TRANSITIONS declared a
+     * lot people are actively bidding on "still publishable".
+     */
+    expect(canTransition("BIDDING_OPEN", "CANCELLED")).toBe(true);
+    expect(canTransition("CANCELLED", "DRAFT")).toBe(true);
+    expect(canTransition("DRAFT", "PUBLISHED")).toBe(true);
+    expect(publishChecklistApplies("BIDDING_OPEN")).toBe(false);
+  });
+
+  it("answers for every status, so a new one cannot slip through", () => {
+    const every: LotStatus[] = [
+      "DRAFT",
+      "PUBLISHED",
+      "BIDDING_OPEN",
+      "EXTENDING",
+      "RESERVE_NOT_MET",
+      "CLOSED_SOLD",
+      "CLOSED_UNSOLD",
+      "CANCELLED",
+    ];
+    for (const status of every) {
+      expect(typeof publishChecklistApplies(status), status).toBe("boolean");
+    }
   });
 });

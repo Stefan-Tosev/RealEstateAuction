@@ -33,6 +33,41 @@ export async function reseed(): Promise<void> {
     // specific message than anything this could print.
     console.warn("[setup] re-seed failed:", (error as Error).message.split("\n")[0]);
   }
+
+  await clearRateLimits();
+}
+
+/**
+ * Forget every recorded rate-limit hit before a run.
+ *
+ * The registration specs deliberately submit the form many times, and
+ * §6 allows five registrations per IP per hour. While the limiter lived
+ * in process memory this was self-solving: Playwright restarts the
+ * server for each run, and the counts went with it. In Postgres they
+ * persist, so the *second* suite run within an hour got a rate-limit
+ * refusal where it expected field errors — a failure that looks like
+ * broken validation and is nothing of the sort.
+ *
+ * CI never sees it, because every run gets a fresh database. It is
+ * purely a local trap, which is the worst kind: green on the machine
+ * that decides merges, red on the machine trying to check the work.
+ *
+ * Clearing before rather than asserting empty after: a run legitimately
+ * leaves hits behind, and what matters is that runs do not inherit each
+ * other's.
+ */
+async function clearRateLimits(): Promise<void> {
+  const { PrismaClient } = await import("@prisma/client");
+  const prisma = new PrismaClient();
+
+  try {
+    const { count } = await prisma.rateLimitHit.deleteMany({});
+    if (count > 0) console.log(`[setup] cleared ${count} rate-limit hit(s)`);
+  } catch (error) {
+    console.warn("[setup] could not clear rate limits:", (error as Error).message.split("\n")[0]);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 /** Production build: everything is compiled ahead of time, so seed only. */

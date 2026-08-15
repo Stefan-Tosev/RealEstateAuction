@@ -238,9 +238,31 @@ test.describe("placing a bid", () => {
     await signIn(page, APPROVED_EMAIL);
     await page.goto(`/en/lots/${SLUG}`);
 
-    await page.locator('input[name="amount"]').evaluate((el) => {
-      (el as HTMLInputElement).value = "150000000";
+    /*
+     * Rewritten in flight rather than by setting the input's value.
+     *
+     * The amount is a CONTROLLED React input (components/bid-form.tsx),
+     * so assigning to .value goes behind React's back and holds only
+     * until the next render. Whether one happens before the click
+     * differs between dev and production — this test failed every dev
+     * run and passed every CI run, which meant it was reporting the
+     * build mode rather than the behaviour.
+     *
+     * Intercepting is also the truer test. The threat is a client that
+     * sends an amount the page never offered, which is exactly what this
+     * produces, and it does not depend on React's state at all.
+     */
+    const onStep = 34_500_000n; // what the button actually displays
+    const crafted = 150_000_000n; // a jump nothing on the page offers
+
+    await page.route(`**/en/lots/${SLUG}`, async (route) => {
+      const request = route.request();
+      const body = request.method() === "POST" ? request.postData() : null;
+      if (!body) return route.fallback();
+
+      await route.continue({ postData: body.replace(String(onStep), String(crafted)) });
     });
+
     await page.getByRole("button", { name: /^Bid / }).click();
 
     await expect(page.getByText("Bids must be exactly the next step.")).toBeVisible();
@@ -270,19 +292,50 @@ test.describe("placing a bid", () => {
   });
 
   test("shows the history without saying who bid", async ({ page }) => {
-    await signIn(page, APPROVED_EMAIL);
+    /*
+     * Viewed by the RIVAL, not by the bidder themselves.
+     *
+     * That is the threat: a rival or a seller who can tell who they are
+     * bidding against can approach them directly, and that is the
+     * disclosure which causes actual harm. Signing in as the bidder made
+     * the assertion incoherent — a page you are signed into legitimately
+     * carries your own session, and in dev that session is serialised
+     * into the RSC payload, so the test failed every dev run and passed
+     * every CI run without the behaviour differing at all.
+     */
+    await signIn(page, RIVAL_EMAIL);
     await page.goto(`/en/lots/${SLUG}`);
 
     await expect(page.getByText("Recent bids")).toBeVisible();
     await expect(page.getByText("Bidder 1")).toBeVisible();
 
-    /*
-     * A seller or a rival who can tell who is bidding can approach them
-     * directly, which is the disclosure that causes actual harm.
-     */
+    // Nothing anywhere in the document identifies who placed the bids.
     const html = await page.content();
     expect(html).not.toContain(APPROVED_EMAIL);
     expect(html).not.toContain("Иванова");
+
+    // And the history itself names nobody at all, pseudonym aside.
+    const history = await page.locator(".bid-history").innerText();
+    expect(history).not.toContain("@");
+    expect(history).toContain("Bidder 1");
+
+    /*
+     * The bidder's opaque id, which getBiddingView maps away to a
+     * bidderIndex. Worth asserting separately from the email: a refactor
+     * that passed raw bid rows to a client component would leak the id
+     * and correlate a bidder across every lot they touch, while the
+     * email assertion above stayed green.
+     *
+     * Production only. `next dev` serialises the server component's own
+     * Prisma rows into the RSC payload — recognisable by React's $n and
+     * $D markers for bigint and Date, which the mapped view never
+     * produces — and none of that reaches a production build. Asserting
+     * it in dev would report the build mode rather than the behaviour,
+     * which is the trap the two fixes in this file were both about.
+     */
+    if (test.info().config.metadata.mode === "prod") {
+      expect(html).not.toContain(approvedId);
+    }
   });
 
   test("does not turn a repeat submission into a second bid", async ({ page }) => {

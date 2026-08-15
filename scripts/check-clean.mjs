@@ -17,15 +17,24 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-/** What the seed produces, and therefore what a clean database looks like. */
-const EXPECTED_LOT_STATUSES = {
-  11: "BIDDING_OPEN",
-  12: "BIDDING_OPEN",
-  13: "EXTENDING",
-  14: "PUBLISHED",
-  15: "PUBLISHED",
-  16: "CLOSED_SOLD",
-  17: "DRAFT",
+/*
+ * What the seed produces, and therefore what a clean database looks like.
+ *
+ * Status alone was not enough. extension_count is incremented by
+ * place-bid.ts and was written by nothing else, so a lot bid into
+ * extension kept the count for ever — and this script, whose whole claim
+ * is "the database is as the seed left it", reported success while lot
+ * 13 sat at 7 from a hand-run UPDATE. A guard that cannot see the state
+ * it guards is worse than no guard, because it is believed.
+ */
+const EXPECTED_LOTS = {
+  11: { status: "BIDDING_OPEN", extensionCount: 0 },
+  12: { status: "BIDDING_OPEN", extensionCount: 0 },
+  13: { status: "EXTENDING", extensionCount: 3 },
+  14: { status: "PUBLISHED", extensionCount: 0 },
+  15: { status: "PUBLISHED", extensionCount: 0 },
+  16: { status: "CLOSED_SOLD", extensionCount: 0 },
+  17: { status: "DRAFT", extensionCount: 0 },
 };
 
 /* Every prefix the suites use to mark their own rows. */
@@ -71,20 +80,30 @@ for (const [model, label] of [
 }
 
 const lots = await prisma.lot.findMany({
-  select: { lotNumber: true, status: true },
+  select: { lotNumber: true, status: true, extensionCount: true },
   orderBy: { lotNumber: "asc" },
 });
 
 for (const lot of lots) {
-  const expected = EXPECTED_LOT_STATUSES[lot.lotNumber];
+  const expected = EXPECTED_LOTS[lot.lotNumber];
   if (!expected) {
     problems.push(`unexpected lot ${lot.lotNumber} — a spec created one and did not remove it`);
-  } else if (lot.status !== expected) {
-    problems.push(`lot ${lot.lotNumber} is ${lot.status}, seeded as ${expected}`);
+    continue;
+  }
+
+  if (lot.status !== expected.status) {
+    problems.push(`lot ${lot.lotNumber} is ${lot.status}, seeded as ${expected.status}`);
+  }
+
+  if (lot.extensionCount !== expected.extensionCount) {
+    problems.push(
+      `lot ${lot.lotNumber} has extension_count ${lot.extensionCount}, seeded as ` +
+        `${expected.extensionCount} — a spec bid it into extension and did not reset it`,
+    );
   }
 }
 
-for (const lotNumber of Object.keys(EXPECTED_LOT_STATUSES)) {
+for (const lotNumber of Object.keys(EXPECTED_LOTS)) {
   if (!lots.some((lot) => lot.lotNumber === Number(lotNumber))) {
     problems.push(`seeded lot ${lotNumber} is missing`);
   }

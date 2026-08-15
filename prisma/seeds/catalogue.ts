@@ -24,14 +24,24 @@ function timeline(listing: SeedListing, now: Date) {
 
   const isClosed = ["CLOSED_SOLD", "CLOSED_UNSOLD", "RESERVE_NOT_MET"].includes(listing.status);
 
+  /*
+   * Each extension pushes the close by the soft-close window, so a lot
+   * that has been extended sits that much past its published close. The
+   * two columns being equal is what "never extended" looks like.
+   *
+   * 300s matches the schema default for soft_close_window_seconds; a
+   * seeded lot does not override it.
+   */
+  const extensions = listing.extensions ?? 0;
+  const effectiveCloseAt = new Date(closesAt.getTime() + extensions * 300 * 1000);
+
   return {
     previewStartsAt,
     biddingOpensAt,
     // scheduled_close_at is the published close and never moves;
-    // effective_close_at is authoritative and shifts on soft close. They
-    // are equal until the soft-close engine (Phase 3) moves one.
+    // effective_close_at is authoritative and shifts on soft close.
     scheduledCloseAt: closesAt,
-    effectiveCloseAt: closesAt,
+    effectiveCloseAt,
     closedAt: isClosed ? closesAt : null,
   };
 }
@@ -77,6 +87,14 @@ export async function seedCatalogue() {
     const lotData = {
       status: listing.status,
       ...dates,
+      /*
+       * Written explicitly, and therefore reset on every re-seed.
+       * Leaving it out made the column one-way: place-bid.ts increments
+       * it, nothing put it back, and a lot bid into extension carried
+       * the count for ever while `npm run db:seed` reported success.
+       * check-clean.mjs now asserts it for the same reason.
+       */
+      extensionCount: listing.extensions ?? 0,
       startingPriceMinor: listing.startingPriceMinor,
       bidIncrementMinor: listing.bidIncrementMinor,
       /*

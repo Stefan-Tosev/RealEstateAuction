@@ -27,6 +27,18 @@ import baseConfig from "./playwright.config";
 export default defineConfig({
   ...baseConfig,
   /*
+   * Lets a spec tell which build it is running against.
+   *
+   * Read as test.info().config.metadata.mode. Metadata rather than an
+   * environment variable because inline `VAR=x cmd` in an npm script is
+   * not portable to Windows — the same reason this config exists at all.
+   *
+   * Needed because `next dev` serialises server-component data into the
+   * RSC payload that production omits, so a handful of assertions about
+   * what reaches the browser are only true of the artefact that ships.
+   */
+  metadata: { mode: "prod" },
+  /*
    * No route warming needed: a production build compiles everything
    * ahead of time, which is also why this suite finishes in well under a
    * minute while the dev one takes minutes.

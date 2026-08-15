@@ -54,6 +54,19 @@ export type SeedListing = {
    * exercise them. The admin form still offers it for the odd lot.
    */
   bidIncrementMinor: bigint | null;
+  /**
+   * How many times soft close has pushed this lot's close back.
+   *
+   * Only meaningful on EXTENDING. place-bid.ts sets that status and
+   * increments this together, so EXTENDING with zero extensions is a
+   * state the engine cannot produce — and it is what the seed used to
+   * create, which made /admin/live look inert on a fresh database.
+   *
+   * Omitted means zero. The seed always writes it, so a lot that has
+   * been bid into extension is reset by a re-seed rather than carrying
+   * the count forward for ever.
+   */
+  extensions?: number;
   /*
    * Hours from seed time to the close. Negative means already closed.
    *
@@ -169,6 +182,15 @@ export const LISTINGS: SeedListing[] = [
      * minutes of seeding.
      */
     closesInHours: 2,
+    /*
+     * Three, so the lot looks like something soft close actually
+     * produced. EXTENDING with zero extensions cannot happen — the
+     * engine sets the status and the count in the same statement — and
+     * a seeded impossibility meant /admin/live rendered its extension
+     * column as "—" on a fresh database, which is precisely the signal
+     * that page exists to show.
+     */
+    extensions: 3,
     gradient: 3,
     images: [
       {

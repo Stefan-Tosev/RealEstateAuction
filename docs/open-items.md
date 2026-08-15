@@ -138,22 +138,61 @@ template and a PDF (or a signed link to the existing page).
 Sales in progress now have one — /admin/sales answers what is
 outstanding, what each is waiting on, and what is overdue.
 
-What is still missing is the same for lots mid-auction. Extension is
-uncapped by design, so a lot scheduled to close at 18:00 can close at
-19:30; an auctioneer cannot see which lots are in extension, how many
-extensions deep, or get an alert when one runs long.
+The same was missing for lots mid-auction. Extension is uncapped by
+design, so a lot scheduled to close at 18:00 can close at 19:30, and an
+auctioneer could not see which lots were in extension, how many
+extensions deep, or be told when one ran long.
+
+**Done** — `/admin/live`, 2026-08-14. Extension depth, overrun against the
+*scheduled* close, and a red banner when a lot is past its close and
+still open, which is almost always the worker being down.
 
 ### 3.5 The rate limiter is per-instance
 
-In-memory, so it holds for one box. The moment there are two application
-instances it must move to Redis or Postgres. Flagged in the code rather
-than left to be discovered under load.
+**Done** — moved to Postgres, 2026-08-14. Counted over a sliding window
+in one statement so there is no gap between recording an attempt and
+reading the total. Keys are hashed.
+
+One consequence worth remembering: it is now durable, and durable state
+outlives a test run. The e2e suite clears `rate_limit_hits` in its
+reseed because the second run within an hour otherwise hit §6's five
+registrations per IP and failed as though validation were broken.
 
 ### 3.6 Cosmetic: publish blockers shown on closed lots
 
-A `CLOSED_SOLD` lot still displays "No auctioneer has agreed this
-reserve, so the lot cannot be published." Harmless noise on a lot that
-will never be published again. Pre-existing.
+**Done** — 2026-08-14. An exhaustive `Record<LotStatus, boolean>` rather
+than reachability over the transition graph, which called an
+actively-bidding lot "still publishable" because it can be cancelled and
+redrafted. Warnings are deliberately still shown: the notary wants a
+sketch and a tax valuation on a lot that sold.
+
+### 3.7 The build needs Google Fonts to be reachable
+
+`src/app/(public)/[locale]/fonts.ts` uses `next/font/google`, which
+fetches Inter **at build time**. On 2026-08-15 that failed a CI run
+outright — `NextFontError: Failed to fetch 'Inter' from Google Fonts` —
+and passed on a re-run with no change.
+
+CI flaking is the mild version. `deploy/deploy.sh` runs `npm run build`
+**on the production server**, after `git pull` has already moved the
+working tree, so an unreachable fonts CDN fails a deploy half way
+through. Self-hosting the woff2 subsets behind `next/font/local` removes
+a third-party dependency from the deploy path and makes the build
+hermetic.
+
+### 3.8 One assertion carries its own machinery
+
+`playwright.prod.config.ts` sets `metadata: { mode: "prod" }` so a spec
+can tell which build it is running against. It exists for exactly one
+assertion — that a bidder's opaque id never reaches the page — which is
+true of a production build and not of `next dev`, because dev serialises
+the server component's own Prisma rows into the RSC payload.
+
+The assertion is worth having: a refactor passing raw rows to a client
+component would leak the id and correlate a bidder across every lot they
+touch, while the email assertion beside it stayed green. But one
+assertion is thin justification for a mechanism, and if a second use
+never appears, deleting both is the right call.
 
 ---
 

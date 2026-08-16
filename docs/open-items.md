@@ -194,6 +194,30 @@ touch, while the email assertion beside it stayed green. But one
 assertion is thin justification for a mechanism, and if a second use
 never appears, deleting both is the right call.
 
+### 3.9 No fallback metrics on the self-hosted fonts
+
+Self-hosting the fonts (§3.7, done) gave up one thing `next/font` did
+automatically: it generated a `size-adjust` fallback `@font-face` per
+family, scaled so the substitute occupies almost exactly the space the
+real font will, which limits the layout shift when the real one arrives.
+
+Everything else is unchanged — the fallback stacks in `tokens.css` still
+apply and `font-display: swap` still swaps — so the behaviour is today's
+minus that optimisation. It is a CLS regression, not a correctness one,
+and it is invisible on a fast connection, which is exactly why it needs
+writing down rather than remembering.
+
+Two ways to close it. Measure the metrics and hand-write the adjusted
+fallback faces (`size-adjust`, `ascent-override`, `descent-override`,
+`line-gap-override`) against Georgia, Arial and Courier New. Or drop the
+serif and mono fallbacks to `font-display: optional` where a swap is
+worse than not swapping. The first keeps the current behaviour and
+removes the shift; the second is cheaper and changes what a slow visitor
+sees.
+
+Worth doing before real traffic, not before launch: Core Web Vitals only
+starts mattering when someone is measuring them.
+
 ---
 
 ## 4. Content

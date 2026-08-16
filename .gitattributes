@@ -13,3 +13,14 @@
 # The deploy scripts run on Ubuntu. bash treats a trailing \r as part of
 # the argument, so a CRLF shebang line fails with "bad interpreter".
 *.sh text eol=lf
+
+# Binary assets, stated rather than left to `text=auto` heuristics. A
+# font or an image that got line-ending conversion applied to it is
+# corrupt, and the symptom is a glyph that will not render rather than
+# anything that looks like a checkout problem.
+*.woff2 binary
+*.woff binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.pdf binary

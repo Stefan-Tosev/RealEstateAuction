@@ -1,0 +1,104 @@
+name: Dev suite
+
+# The e2e suite against `next dev`, which nothing else ever runs.
+#
+# ci.yml runs test:e2e:prod, because production is what ships and because
+# Auth.js validates the request Host in production and trusts it in
+# development — a difference that once passed every dev run and failed on
+# the server.
+#
+# The consequence went unnoticed for some time: the DEV suite was red on
+# main, and CLAUDE.md tells everyone to run it. Three causes, none of them
+# the code under test — a controlled React input written behind React's
+# back, an assertion that could not hold while signed in, and a rate
+# limiter that became durable and so outlived a test run. All three were
+# invisible to CI, because CI never ran that suite.
+#
+# Weekly rather than per-push. The divergence it catches accumulates over
+# days, not commits, and 10 minutes of runner time every Monday is a
+# better trade than adding it to every PR.
+on:
+  schedule:
+    # 06:00 UTC Monday — a failure is then waiting at the start of the
+    # week rather than discovered mid-change.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auction_test
+  AUTH_SECRET: ci-only-secret-not-used-anywhere-real
+  AUTH_URL: http://localhost:3000
+  NEXT_PUBLIC_SITE_URL: http://localhost:3000
+  ADMIN_EMAIL: ci-admin@example.test
+  ADMIN_PASSWORD: ci-only-password-not-used-anywhere-real
+  CRON_SECRET: ci-only-cron-secret
+  # Deliberately empty — transport.ts falls back to the console stub, which
+  # is the only thing between a CI run and a few hundred real emails.
+  RESEND_API_KEY: ""
+  MAIL_FROM: Auction House <onboarding@resend.dev>
+  TZ: UTC
+
+jobs:
+  dev-e2e:
+    name: Dev suite
+    runs-on: ubuntu-latest
+    # `next dev` compiles each route on first request, so this is several
+    # times slower than the production run and needs the headroom.
+    timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: auction_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Generate the client
+        run: npm run db:generate
+
+      - name: Seed
+        run: npm run db:seed
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests against next dev
+        # The whole point of this workflow. playwright.config.ts starts
+        # `npm run dev` itself and global-setup warms the routes.
+        run: npm run test:e2e
+
+      - name: Upload failure artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-suite-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Check the suite left the database as it found it
+        run: node scripts/check-clean.mjs

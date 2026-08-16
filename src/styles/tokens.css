@@ -57,6 +57,12 @@
   --font-serif: var(--font-playfair), Georgia, serif;
   --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: var(--font-plex-mono), 'Courier New', monospace;
+  /*
+     Deliberately undefined here. They are set by .fonts below, which the
+     public layout applies and the admin does not — the admin has always
+     run on system fonts, and defining them globally would restyle it as
+     a side effect of self-hosting.
+  */
 
   --container-width: 1200px;
   --radius: 2px;
@@ -105,4 +111,18 @@ body.theme-light {
     --transition-fast: 0ms;
     --transition-med: 0ms;
   }
+}
+
+/*
+ * The three families, named once.
+ *
+ * A class rather than :root because next/font produced a class and the
+ * public layout applied it — keeping that shape means the admin stays on
+ * system fonts exactly as before. The @font-face rules live in
+ * fonts.css, which the public layout imports.
+ */
+.fonts {
+  --font-playfair: 'Playfair Display';
+  --font-inter: 'Inter';
+  --font-plex-mono: 'IBM Plex Mono';
 }

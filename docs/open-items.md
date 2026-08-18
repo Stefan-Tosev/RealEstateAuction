@@ -284,25 +284,51 @@ unticked checkbox, a server action calling `recordTermsAcceptance`, and
 bilingual copy. `recordTermsAcceptance` appends and never mutates, so
 the prior consent survives as evidence of what was agreed before.
 
-### 3.11 The sign-in timing test is load-sensitive
+### 3.11 The sign-in timing test was load-sensitive
+
+**Done** — 18 August 2026.
 
 `tests/unit/bidder-sign-in.test.ts` asserts that verifying credentials
 costs comparable time whether or not the address exists — the anti-
-enumeration property from `docs/server-validation.md` §5. It compares a
-ratio against 5.
+enumeration property from `docs/server-validation.md` §5. It took **one
+sample of each path** and compared the ratio against 5.
 
-On 18 August 2026 it failed once in a full parallel run at 9.27, then
-passed alone and passed on a re-run of the whole suite. Nothing in that
-path had changed. So the assertion is measuring the machine as much as
-the code, and under enough parallel database load it reports a defect
-that is not there.
+It failed once in a full parallel run at 9.27, then passed alone and
+passed on a re-run of the whole suite, with nothing in that path
+changed.
 
-That matters more than an ordinary flake, because this one guards a
-security property: a test that cries wolf is a test whose failures get
-waved through, and the one time it is right would look exactly like the
-times it was wrong. Worth either measuring with the rest of the suite
-quiescent, or raising the bound and asserting on a median of several
-runs rather than a single pair.
+Measured properly before touching it, 30 interleaved samples on an idle
+machine:
+
+```
+existing  min 32.4  p50 36.6  p90 44.0  max 48.1
+missing   min 32.5  p50 36.0  p90 45.5  max 48.8
+median ratio: 1.016
+single-sample pairs with ratio >= 5: 0/30
+```
+
+The property is intact, and structurally so: `verifyBidderCredentials`
+calls `verifyPassword` on every path, against a dummy hash produced by
+the same `hashPassword` when there is no user. No branch skips the
+Argon2 work, so the ~1ms result that a ratio of 9.27 would otherwise
+imply is not reachable. One call stalled under parallel load; that is
+all.
+
+Now sampled seven times per path and compared on **medians**, with the
+bound tightened from 5 to 2 — a real oracle is not a near miss, it is
+~1ms against ~36ms. Reintroducing the oracle deliberately produces a
+ratio of 17.0 against the bound of 2, so the assertion still catches
+what it exists for.
+
+One incidental finding, fixed by the warm-up: `getDummyHash()` is
+computed lazily and cached, so the *first* unknown-address call paid an
+extra hash and ran slower than the known-address one. The wrong
+direction for a leak, but noise the test should not have been sampling.
+
+Worth writing down rather than just fixing: a test guarding a security
+property that cries wolf is worse than one that is merely flaky,
+because its failures get waved through — and the one time it is right
+looks exactly like the times it was not.
 
 ---
 

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { enqueue } from "@/server/notifications/outbox";
+import { POLICY_VERSION, hasAcceptedCurrentTerms } from "@/server/identity/terms";
 import { minimumNextBid } from "./increments";
 
 /*
@@ -31,6 +32,7 @@ export type BidRejection =
   | "CLOSED"
   | "NOT_APPROVED"
   | "NO_DEPOSIT"
+  | "TERMS_OUTDATED"
   | "TOO_LOW"
   | "NOT_ON_STEP"
   | "NOT_FOUND";
@@ -162,6 +164,7 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
           idempotencyKey: request.idempotencyKey,
           clientIp: request.clientIp ?? null,
           userAgent: request.userAgent ?? null,
+          policyVersion: POLICY_VERSION,
         },
       });
       return { ok: false as const, reason, minimumMinor, bidId: bid.id };
@@ -182,6 +185,20 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
       where: { userId: request.userId, status: "approved" },
     });
     if (approvals === 0) return reject("NOT_APPROVED");
+
+    /*
+     * Bound to a named version of the terms, not to whatever they say
+     * today. A bid is binding because the bidder accepted terms that
+     * said so, which is only provable if the version they accepted is
+     * the version in force.
+     *
+     * Refused rather than silently re-consented: agreement has to be an
+     * act. Recorded as a rejected bid like every other refusal, so the
+     * attempt is still evidence that they tried.
+     */
+    if (!(await hasAcceptedCurrentTerms(tx, request.userId))) {
+      return reject("TERMS_OUTDATED");
+    }
 
     if (lot.deposit_required_minor && lot.deposit_required_minor > 0n) {
       const held = await tx.deposit.count({
@@ -274,6 +291,7 @@ export async function placeBid(request: BidRequest): Promise<BidOutcome> {
         previousBidId: previous?.id ?? null,
         clientIp: request.clientIp ?? null,
         userAgent: request.userAgent ?? null,
+        policyVersion: POLICY_VERSION,
       },
     });
 

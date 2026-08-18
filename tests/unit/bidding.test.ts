@@ -6,6 +6,7 @@ import { acceptTopBid, declineTopBid, expireNegotiationWindows } from "@/server/
 import { DEFAULT_BANDS, incrementForFromBands } from "@/server/auction/increments";
 import { DEFAULT_SCHEDULE, placeBid, windowFor } from "@/server/auction/place-bid";
 import { getBiddingView } from "@/server/auction/bidding-view";
+import { POLICY_VERSION, acceptedTermsVersion, recordTermsAcceptance } from "@/server/identity/terms";
 
 /*
  * The soft-close engine.
@@ -28,7 +29,21 @@ let bidders: string[] = [];
 let ADMIN_ID = "";
 let ADMIN_ACTOR: { id: string; email: string; role: "admin" };
 
-async function makeBidder(n: number, approved = true): Promise<string> {
+/*
+ * A bidder as registration would leave one: approved, and holding a
+ * granted terms consent at the current version.
+ *
+ * The consent is not decoration. placeBid refuses anyone whose latest
+ * terms consent does not match POLICY_VERSION, so a fixture without one
+ * is not a simplified bidder -- it is a bidder who never agreed to
+ * anything, and every test built on it would be testing the refusal.
+ * Pass `termsVersion` to build the stale and never-accepted cases.
+ */
+async function makeBidder(
+  n: number,
+  approved = true,
+  termsVersion: string | null = POLICY_VERSION,
+): Promise<string> {
   const user = await prisma.user.create({
     data: {
       email: `${PREFIX}${n}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.bg`,
@@ -45,6 +60,19 @@ async function makeBidder(n: number, approved = true): Promise<string> {
   if (approved) {
     await prisma.bidderApproval.create({ data: { userId: user.id, status: "approved" } });
   }
+
+  if (termsVersion !== null) {
+    await prisma.consent.create({
+      data: {
+        userId: user.id,
+        kind: "terms",
+        granted: true,
+        policyVersion: termsVersion,
+        wording: "Приемам общите условия.",
+      },
+    });
+  }
+
   return user.id;
 }
 
@@ -1286,5 +1314,145 @@ describe("what the lot page is told (bidding-view)", () => {
     const view = await getBiddingView(lotId, bidders[0]);
     expect(JSON.stringify(view)).not.toContain("11000000");
     expect(Object.keys(view)).not.toContain("reservePriceMinor");
+  });
+});
+
+describe("terms acceptance binds a bid to a named version", () => {
+  /*
+   * A bid is binding because the bidder accepted terms saying so. That
+   * is only provable if the version they accepted is the version in
+   * force — consent was captured once at registration and nothing
+   * re-asked, so bumping the policy left everyone bidding under text
+   * they had never seen while the record honestly said otherwise.
+   */
+
+
+  it("refuses a bidder still on an older version", async () => {
+    const stale = await makeBidder(60, true, "2025-01-01");
+
+    const outcome = await placeBid({
+      lotId,
+      userId: stale,
+      amountMinor: 10_000_000n,
+      idempotencyKey: key(),
+    });
+
+    expect(outcome).toMatchObject({ ok: false, reason: "TERMS_OUTDATED" });
+  });
+
+  it("refuses a bidder who never accepted any terms", async () => {
+    // Registration always writes one, so an absent consent means the row
+    // came from somewhere else. That is not grounds to treat them as
+    // bound.
+    const never = await makeBidder(61, true, null);
+
+    const outcome = await placeBid({
+      lotId,
+      userId: never,
+      amountMinor: 10_000_000n,
+      idempotencyKey: key(),
+    });
+
+    expect(outcome).toMatchObject({ ok: false, reason: "TERMS_OUTDATED" });
+  });
+
+  it("records the refusal as a bid, so the attempt survives", async () => {
+    const stale = await makeBidder(62, true, "2025-01-01");
+    await placeBid({ lotId, userId: stale, amountMinor: 10_000_000n, idempotencyKey: key() });
+
+    const bid = await prisma.bid.findFirst({ where: { lotId, userId: stale } });
+    expect(bid).toMatchObject({ status: "rejected", rejectReason: "TERMS_OUTDATED" });
+  });
+
+  it("accepts once the current version is accepted, and keeps the old row", async () => {
+    const stale = await makeBidder(63, true, "2025-01-01");
+
+    await recordTermsAcceptance(prisma, {
+      userId: stale,
+      wording: "Приемам новите общи условия.",
+      ip: "203.0.113.7",
+    });
+
+    const outcome = await placeBid({
+      lotId,
+      userId: stale,
+      amountMinor: 10_000_000n,
+      idempotencyKey: key(),
+    });
+    expect(outcome).toMatchObject({ ok: true });
+
+    /*
+     * Append, never update. The earlier row is the evidence of what was
+     * agreed at the time; a trail whose value is the sequence cannot
+     * have the sequence overwritten.
+     */
+    const consents = await prisma.consent.findMany({
+      where: { userId: stale, kind: "terms" },
+      orderBy: { createdAt: "asc" },
+      select: { policyVersion: true, wording: true },
+    });
+    expect(consents).toHaveLength(2);
+    expect(consents[0].policyVersion).toBe("2025-01-01");
+    expect(consents[1].policyVersion).toBe(POLICY_VERSION);
+  });
+
+  it("reads the newest granted consent, not the first", async () => {
+    const bidder = await makeBidder(64, true, "2025-01-01");
+    await recordTermsAcceptance(prisma, { userId: bidder, wording: "Приемам." });
+
+    expect(await acceptedTermsVersion(prisma, bidder)).toBe(POLICY_VERSION);
+  });
+
+  it("ignores a revoked consent", async () => {
+    // A withdrawn consent is a fact worth keeping and not one worth
+    // acting on.
+    const bidder = await makeBidder(65, true, null);
+    await prisma.consent.create({
+      data: {
+        userId: bidder,
+        kind: "terms",
+        granted: true,
+        policyVersion: POLICY_VERSION,
+        wording: "Приемам.",
+        revokedAt: new Date(),
+      },
+    });
+
+    expect(await acceptedTermsVersion(prisma, bidder)).toBeNull();
+  });
+
+  it("ignores a recorded refusal", async () => {
+    // Evidence, never permission.
+    const bidder = await makeBidder(66, true, null);
+    await prisma.consent.create({
+      data: {
+        userId: bidder,
+        kind: "terms",
+        granted: false,
+        policyVersion: POLICY_VERSION,
+        wording: "Приемам.",
+      },
+    });
+
+    expect(await acceptedTermsVersion(prisma, bidder)).toBeNull();
+  });
+
+  it("stamps every bid with the version in force when it arrived", async () => {
+    const bidder = await makeBidder(67);
+    const outcome = await placeBid({
+      lotId,
+      userId: bidder,
+      amountMinor: 10_000_000n,
+      idempotencyKey: key(),
+    });
+    expect(outcome.ok).toBe(true);
+
+    /*
+     * The constant moves on; the stamp does not. That is the whole
+     * point — POLICY_VERSION tells you what the terms are today, and
+     * only the bid can tell you what they were when it was placed.
+     */
+    const bid = await prisma.bid.findFirst({ where: { lotId, userId: bidder } });
+    expect(bid?.policyVersion).toBe(POLICY_VERSION);
   });
 });

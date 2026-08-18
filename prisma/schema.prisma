@@ -536,6 +536,9 @@ model Bid {
   previousBidId     String?   @map("previous_bid_id") @db.Uuid
   clientIp          String?   @map("client_ip")
   userAgent         String?   @map("user_agent")
+  // The terms version in force when this bid was received. Nullable
+  // because bids predate the column; every bid since carries one.
+  policyVersion     String?   @map("policy_version")
 
   lot          Lot   @relation("LotBids", fields: [lotId], references: [id])
   user         User  @relation(fields: [userId], references: [id])

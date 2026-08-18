@@ -218,6 +218,50 @@ sees.
 Worth doing before real traffic, not before launch: Core Web Vitals only
 starts mattering when someone is measuring them.
 
+### 3.10 No page for accepting changed terms
+
+`placeBid` now refuses a bidder whose latest granted `terms` consent
+does not name the current `POLICY_VERSION`, and the refusal renders in
+both languages. What does not exist is the page that lets them accept
+the new version — so the gate is a door with no handle on the bidder's
+side.
+
+Nothing is broken today, because `POLICY_VERSION` has not moved since
+registration was built and the gate therefore never fires. The danger is
+the day it does move, which is the day the lawyer's real bidder terms
+arrive: every existing bidder is locked out of bidding at once, with a
+message telling them to do something the site offers no way to do.
+
+The guard against that is a comment at the constant itself in
+`src/server/identity/terms.ts`, where anyone about to bump it is
+already looking. That is deliberate — a warning somewhere else is a
+warning nobody reads at the moment it matters.
+
+Closing it needs a page rendering the current terms with a single
+unticked checkbox, a server action calling `recordTermsAcceptance`, and
+bilingual copy. `recordTermsAcceptance` appends and never mutates, so
+the prior consent survives as evidence of what was agreed before.
+
+### 3.11 The sign-in timing test is load-sensitive
+
+`tests/unit/bidder-sign-in.test.ts` asserts that verifying credentials
+costs comparable time whether or not the address exists — the anti-
+enumeration property from `docs/server-validation.md` §5. It compares a
+ratio against 5.
+
+On 18 August 2026 it failed once in a full parallel run at 9.27, then
+passed alone and passed on a re-run of the whole suite. Nothing in that
+path had changed. So the assertion is measuring the machine as much as
+the code, and under enough parallel database load it reports a defect
+that is not there.
+
+That matters more than an ordinary flake, because this one guards a
+security property: a test that cries wolf is a test whose failures get
+waved through, and the one time it is right would look exactly like the
+times it was wrong. Worth either measuring with the rest of the suite
+quiescent, or raising the bound and asserting on a median of several
+runs rather than a single pair.
+
 ---
 
 ## 4. Content

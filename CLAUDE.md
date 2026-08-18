@@ -128,3 +128,27 @@ Passwords follow NIST SP 800-63B: length over composition, no character-class ru
 Specs that create data clean up after themselves. **Deleting a row that owns a file is not the same as deleting the file** — that has leaked twice.
 
 The e2e suite is strong on behaviour and blind to layout. Twice a whole suite was green while a page rendered with no shell at all. Screenshot the result when the change is visual.
+
+## The irreversible list
+
+Named 16 August 2026, from the schema. Re-read and extended at every
+phase boundary, in the same session as the ledger — a list named once is
+stale by the third phase.
+
+**If a diff touches one of these, it is irreversible work** and needs
+domain-level tests that re-run in seconds without a browser. No
+judgement call, no negotiation.
+
+1. **Bid** — including increment bands, extension and close timing. A
+   bid accepted after close cannot be un-accepted, and bidders have
+   every incentive to probe the edges.
+2. **Deposit** — money in, and the gate on who may bid at all.
+3. **BidderApproval** — decides who is allowed to act. An approval
+   bypass is indistinguishable from a legitimate bid after the fact.
+4. **Invoice, InvoiceCounter, Fee, Sale** — money out, and a sequential
+   numbering that cannot be re-issued.
+5. **User and Consent** — identity and GDPR basis. Wrong here is not a
+   defect, it is a disclosure.
+
+`AuditLog` is not on the list but is how the rest are reconstructed;
+treat damage to it as damage to all five.

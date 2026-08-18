@@ -45,6 +45,15 @@ const ROUTES = [
   "/en/sign-in",
   "/bg/verify",
   "/en/verify",
+  /*
+   * Both locales. A bidder on outdated terms is sent here from the lot
+   * page, so the navigation happens mid-test against the click's
+   * timeout rather than this file's 60s budget — and an uncompiled
+   * route presents as "the URL never changed", which reads like a
+   * broken link rather than a slow one.
+   */
+  "/bg/terms/accept",
+  "/en/terms/accept",
 
   // Route handlers
   "/api/time",

@@ -119,6 +119,48 @@ with a reason and a named operator against it. What is NOT built, because
 it cannot be, is the right to keep the money. That exists only if the
 bidder terms say so (see 1.2), and they do not yet exist.
 
+### 2.5 What happens to the runner-up when the winner defaults
+
+**Status: open, awaiting a Bulgarian lawyer. Not settled.**
+
+The intended commercial flow is that a winner who fails to complete
+forfeits their deposit, and the lot is then offered to the next highest
+bidder.
+
+The first half is standard and clean. The second half has a problem that
+drafting has to solve rather than code: **an underbidder's bid dies when
+the auction closes.** They bid into a particular competitive moment; two
+weeks later they have defaulted on nothing, because they never won.
+Coming back with "it is yours at your last bid" is a *new offer*, and
+they are free to decline. There is no deposit to forfeit, because there
+was no breach.
+
+It only works otherwise if the bidder terms explicitly keep an
+underbidder bound for a stated window after close — an unusual term, and
+one bidders read as "if I lose I am still on the hook for a fortnight".
+Some will not bid at all.
+
+It also collides directly with the refund window. You cannot both hold
+the runner-up to their bid and return their deposit promptly; those are
+the same decision, not two.
+
+**The recommendation to put to the lawyer, agreed 18 August 2026:**
+
+- Hold **only the second-highest bidder**, for a short defined window —
+  five working days.
+- Release every other deposit as soon as the winner has paid and the
+  commission is settled.
+- Do not cascade past #2. It multiplies the number of people whose money
+  is being held for very little recovery.
+- The winner's forfeiture is the clean, standard part. It is the
+  **underbidder's** position that needs drafting.
+
+Depends on 1.2, which does not exist yet — this is a clause inside the
+bidder terms, not a separate document. Nothing should be built against
+it until a lawyer has confirmed it is enforceable in Bulgaria; a gate
+written to the wrong rule is worse than no gate, because it looks
+decided.
+
 ---
 
 ## 3. Code, still open

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { hasAcceptedCurrentTerms } from "@/server/identity/terms";
 import { incrementFor, minimumNextBid } from "./increments";
 
 /*
@@ -13,7 +14,10 @@ import { incrementFor, minimumNextBid } from "./increments";
 
 export type BidEligibility =
   | { canBid: true }
-  | { canBid: false; reason: "not-signed-in" | "not-approved" | "no-deposit" | "not-open" };
+  | {
+      canBid: false;
+      reason: "not-signed-in" | "not-approved" | "terms-outdated" | "no-deposit" | "not-open";
+    };
 
 export type BiddingView = {
   status: string;
@@ -139,6 +143,15 @@ async function eligibilityFor(
     where: { userId: viewerId, status: "approved" },
   });
   if (approvals === 0) return { canBid: false, reason: "not-approved" };
+
+  /*
+   * Same order as the gate in placeBid, deliberately. The panel exists to
+   * tell a bidder why they cannot bid before they try, so if the two
+   * disagree the page promises something the engine then refuses.
+   */
+  if (!(await hasAcceptedCurrentTerms(prisma, viewerId))) {
+    return { canBid: false, reason: "terms-outdated" };
+  }
 
   if (depositRequiredMinor && depositRequiredMinor > 0n) {
     const held = await prisma.deposit.count({

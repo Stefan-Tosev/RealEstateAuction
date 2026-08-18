@@ -109,6 +109,17 @@ export function BidPanel({
             </Link>
           ) : view.eligibility.reason === "not-approved" ? (
             t.bidding.notApproved
+          ) : view.eligibility.reason === "terms-outdated" ? (
+            /*
+             * A link, not a message. Being told the terms changed and
+             * left to find the page is the same as being locked out.
+             */
+            <Link
+              className="btn btn-brass"
+              href={`/${locale}/terms/accept?returnTo=${encodeURIComponent(`/${locale}/lots/${slug}`)}`}
+            >
+              {t.bidding.acceptTerms}
+            </Link>
           ) : view.eligibility.reason === "no-deposit" ? (
             t.bidding.needDeposit
           ) : (

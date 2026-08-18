@@ -11,6 +11,10 @@ the rest follow from the answer.
 Bring: `docs/architecture.md` §1 (lifecycle), §9 (Bulgaria), §10
 (commercial model), and `docs/open-items.md` §1–2.
 
+**Sections 10 and 11 were added on 18 August 2026** and carry decisions
+taken since the rest was written. Section 12 is a contradiction inside
+this repository that has to be settled before the meeting, not at it.
+
 ---
 
 ## 1. Is a winning bid legally binding? — **blocking everything**
@@ -188,7 +192,103 @@ they send us property, we send them legal-pack work.
 3. Is a DPIA required, given identity documents plus financial data?
 
 **Note:** ЕГН is deliberately not collected anywhere in the design (§9).
-Confirm nothing in the KYC flow reintroduces it.
+Confirm nothing in the KYC flow reintroduces it. **See §12 — the rest of
+the repository disagrees with that sentence.**
+
+---
+
+## 10. Both sides post a deposit, and what happens to the runner-up
+
+Two decisions taken on 18 August 2026, neither reflected in the code yet.
+
+**Sellers post a deposit too.** The intended position is that winning
+creates a binding предварителен договор, and whichever side then fails
+to complete forfeits their deposit — buyer or seller alike. Today only
+bidder deposits exist in the schema.
+
+**Ask:**
+
+1. Is a seller's deposit enforceable on the same footing as a buyer's,
+   or does it need different wording?
+2. Is the forfeit best characterised as задатък, неустойка, or something
+   else — and does the choice change whether a court would reduce it?
+3. Can a forfeited deposit be kept in full, or is it liable to be
+   reduced as excessive? What percentage of the price is defensible?
+
+**The runner-up.** The commercial intention is that a defaulting winner
+forfeits, and the lot is then offered to the next highest bidder. The
+difficulty is that an underbidder's bid **dies at close** — they never
+won, so they have breached nothing, and offering them the lot later is a
+new offer they are free to decline with no deposit at risk.
+
+Position to confirm: hold only the second-highest bidder, for five
+working days after close; release every other deposit once the winner
+has paid; do not cascade past #2.
+
+**Ask:**
+
+4. Confirm that an underbidder is not bound after close unless the terms
+   say so explicitly.
+5. Can the bidder terms keep the second-highest bidder bound for a
+   stated window, so their deposit is genuinely at risk? Is that
+   enforceable against a consumer, and for how long before it becomes
+   unfair?
+6. Deposits are returned by hand around a full-time job. Is **fifteen
+   working days** from the winner completing a defensible outer limit to
+   state in the terms? A term breached routinely is worse than a slower
+   one that is met.
+
+**Why it matters:** (5) collides with the refund window. You cannot both
+hold the runner-up to their bid and return their deposit promptly —
+they are one decision, not two. Full reasoning in `open-items.md` §2.5.
+
+---
+
+## 11. Is the terms-acceptance record good enough evidence?
+
+Built on 18 August 2026, so this asks whether what exists is sufficient
+rather than what to build.
+
+Every bidder's acceptance is stored with the version identifier, the
+**exact wording rendered beside the checkbox**, the timestamp, and the
+IP. Acceptance is append-only: a new version produces a new row and the
+previous one is never altered or deleted. A bid is refused outright if
+the bidder has not accepted the version currently in force, and every
+bid records which version was in force when it arrived.
+
+**Ask:**
+
+1. Is that sufficient to prove, years later, which terms a particular
+   bid was placed under?
+2. Should anything else be captured at the moment of acceptance — a hash
+   of the document, a stored copy of the text as rendered, anything
+   further?
+3. Must the superseded versions of the terms themselves be retained, and
+   for how long? The version identifier is only evidence for as long as
+   the document it names can be produced.
+
+---
+
+## 12. Settle this before the meeting: is ЕГН collected or not?
+
+Not a question for the lawyer. A contradiction inside this repository
+that will produce a wrong answer if it reaches her unresolved.
+
+- `docs/lawyer-questions.md` §9 (above): "ЕГН is deliberately not
+  collected anywhere in the design."
+- `docs/open-items.md` §1.4: "Stage 2 will hold ЕГН and identity
+  documents."
+- `CLAUDE.md`: "ЕГН, identity documents and proof of funds belong to
+  Stage 2."
+
+Two of the three say it is collected at Stage 2; one says it never is.
+Whichever is true, the other documents are wrong and have been guiding
+decisions. It also changes §9's answers materially: whether a DPIA is
+required, what the retention obligation is, and whether Bulgarian
+hosting is needed all turn on it.
+
+**Decide first, then ask.** If ЕГН is collected, the AML questions in §4
+become the most important ones on this list.
 
 ---
 
@@ -202,9 +302,11 @@ Confirm nothing in the KYC flow reintroduces it.
 | Q3 drafted | The platform can take real property and real money |
 | Q4 answered | Deposit account opened; Phase 5 de-risked |
 | Q5 answered | The probate pitch can be written without hedging |
+| Q10 answered | Seller deposits and the runner-up window can be built |
+| Q11 answered | The consent record is either finished or has a known gap |
 
 ---
 
 **Budget expectation:** questions 1, 2 and 5 are the ones worth paying a
-specialist for. Questions 3 and 4 are ordinary commercial drafting.
+specialist for, and 10 is close behind now that both sides put money up. Questions 3 and 4 are ordinary commercial drafting.
 Expect the drafting to cost more than the advice.

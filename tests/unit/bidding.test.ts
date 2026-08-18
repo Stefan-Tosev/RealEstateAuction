@@ -1485,6 +1485,18 @@ describe("terms acceptance binds a bid to a named version", () => {
     expect(await hasAcceptedCurrentTerms(prisma, bidder)).toBe(false);
   });
 
+  it("tells the lot page why, before the bidder tries", async () => {
+    /*
+     * The panel and the gate must agree. If the page says a bidder may
+     * bid and placeBid then refuses, the page has promised something the
+     * engine will not honour — and the bidder finds out by losing a lot.
+     */
+    const stale = await makeBidder(68, true, "2025-01-01");
+    const view = await getBiddingView(lotId, stale);
+
+    expect(view.eligibility).toEqual({ canBid: false, reason: "terms-outdated" });
+  });
+
   it("stamps every bid with the version in force when it arrived", async () => {
     const bidder = await makeBidder(67);
     const outcome = await placeBid({

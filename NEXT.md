@@ -74,6 +74,16 @@ it. Self-contained, and blocked on nothing.
   every existing bidder out of bidding at once. The day the lawyer's
   real terms arrive is exactly the day this fires — see
   `docs/open-items.md` §3.10.
+- **Do not `npm run clean` immediately before a dev e2e run** unless you
+  mean to. On 18 August 2026 a cold full suite took 25.5 minutes and
+  failed four tests; the same tests passed warm, 78 in 7.3 minutes.
+  Cold compiles push individual page loads past the 15s action timeout,
+  and an uncompiled page has no `h1` and no `body` class — which is
+  indistinguishable from the missing-shell bug this repo has hit twice.
+  Judge such a failure by re-running warm before believing it.
+- **A new route needs adding to `tests/e2e/global-setup.ts`.** Its
+  warming list is not derived from anything; it is hand-maintained, and
+  the file says it has already fallen behind once.
 - **Run `npm run clean` when switching between the dev and prod e2e
   suites.** The prod run leaves a production build in `.next` and the
   dev run then recompiles from it slowly enough to produce dozens of

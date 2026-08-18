@@ -6,7 +6,11 @@ import { acceptTopBid, declineTopBid, expireNegotiationWindows } from "@/server/
 import { DEFAULT_BANDS, incrementForFromBands } from "@/server/auction/increments";
 import { DEFAULT_SCHEDULE, placeBid, windowFor } from "@/server/auction/place-bid";
 import { getBiddingView } from "@/server/auction/bidding-view";
-import { POLICY_VERSION, acceptedTermsVersion, recordTermsAcceptance } from "@/server/identity/terms";
+import {
+  POLICY_VERSION,
+  hasAcceptedCurrentTerms,
+  recordTermsAcceptance,
+} from "@/server/identity/terms";
 
 /*
  * The soft-close engine.
@@ -1396,11 +1400,55 @@ describe("terms acceptance binds a bid to a named version", () => {
     expect(consents[1].policyVersion).toBe(POLICY_VERSION);
   });
 
-  it("reads the newest granted consent, not the first", async () => {
-    const bidder = await makeBidder(64, true, "2025-01-01");
-    await recordTermsAcceptance(prisma, { userId: bidder, wording: "Приемам." });
+  it("sees a fresh acceptance even when it lands in the same millisecond", async () => {
+    /*
+     * The regression CI found. createdAt is millisecond-resolution, so
+     * ordering by it and taking the newest returns either row when two
+     * land in one tick — and the bidder who had just accepted was told
+     * they had not. Written back to back on purpose: on a fast enough
+     * machine these two rows share a timestamp, and the check must not
+     * care.
+     */
+    const bidder = await makeBidder(64, true, null);
 
-    expect(await acceptedTermsVersion(prisma, bidder)).toBe(POLICY_VERSION);
+    /*
+     * Forced rather than raced. Writing the two rows back to back only
+     * collides on a machine quick enough to fit both in one tick, which
+     * is precisely why this passed here and failed in CI. Stamping both
+     * with the same instant reproduces it everywhere, every run.
+     */
+    const sameInstant = new Date();
+    await prisma.consent.createMany({
+      data: [
+        {
+          userId: bidder,
+          kind: "terms",
+          granted: true,
+          policyVersion: "2025-01-01",
+          wording: "Стари условия.",
+          createdAt: sameInstant,
+        },
+        {
+          userId: bidder,
+          kind: "terms",
+          granted: true,
+          policyVersion: POLICY_VERSION,
+          wording: "Приемам.",
+          createdAt: sameInstant,
+        },
+      ],
+    });
+
+    expect(await hasAcceptedCurrentTerms(prisma, bidder)).toBe(true);
+
+    // And the bid itself goes through, which is the part the bidder sees.
+    const outcome = await placeBid({
+      lotId,
+      userId: bidder,
+      amountMinor: 10_000_000n,
+      idempotencyKey: key(),
+    });
+    expect(outcome).toMatchObject({ ok: true });
   });
 
   it("ignores a revoked consent", async () => {
@@ -1418,7 +1466,7 @@ describe("terms acceptance binds a bid to a named version", () => {
       },
     });
 
-    expect(await acceptedTermsVersion(prisma, bidder)).toBeNull();
+    expect(await hasAcceptedCurrentTerms(prisma, bidder)).toBe(false);
   });
 
   it("ignores a recorded refusal", async () => {
@@ -1434,7 +1482,7 @@ describe("terms acceptance binds a bid to a named version", () => {
       },
     });
 
-    expect(await acceptedTermsVersion(prisma, bidder)).toBeNull();
+    expect(await hasAcceptedCurrentTerms(prisma, bidder)).toBe(false);
   });
 
   it("stamps every bid with the version in force when it arrived", async () => {

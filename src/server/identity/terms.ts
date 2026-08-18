@@ -33,41 +33,48 @@ type Client = Prisma.TransactionClient;
 export const POLICY_VERSION = "2026-08-01";
 
 /**
- * The terms version this user last granted, or null if they never have.
- *
- * Latest by grant time, not by insertion: consent is append-only, so a
- * user accumulates a row per version and the newest is the one that
- * binds. Revoked rows are skipped — a withdrawn consent is a fact worth
- * keeping and not one worth acting on.
- *
- * `granted: false` is skipped for the same reason. A recorded refusal is
- * evidence, never permission.
- */
-export async function acceptedTermsVersion(
-  client: Client,
-  userId: string,
-): Promise<string | null> {
-  const consent = await client.consent.findFirst({
-    where: { userId, kind: "terms", granted: true, revokedAt: null },
-    orderBy: { createdAt: "desc" },
-    select: { policyVersion: true },
-  });
-  return consent?.policyVersion ?? null;
-}
-
-/**
  * Whether this user has accepted the version in force.
+ *
+ * An existence check, deliberately, rather than "find the newest consent
+ * and compare its version".
+ *
+ * The newest-row phrasing is the obvious one and it is wrong here.
+ * `createdAt` is `@default(now())`, which Prisma resolves in JavaScript
+ * at **millisecond** resolution — two consents written in the same
+ * millisecond carry an identical timestamp, and `ORDER BY created_at
+ * DESC` then returns either one. CI caught exactly that: a bidder who
+ * had just accepted the current terms was told they were still on the
+ * old version, on a machine fast enough to write both rows inside one
+ * tick. A bidder locked out of bidding by a tiebreak is not a defect
+ * anyone would find by reading the code.
+ *
+ * Asking "is there a granted, unrevoked consent naming this version?"
+ * has no ordering in it, so there is nothing to tie.
  *
  * A user with no terms consent at all fails, deliberately. Registration
  * always writes one, so the absent case is a row created by something
  * other than registration — a script, a seed, a future admin path — and
  * none of those are grounds to treat someone as bound.
+ *
+ * `granted: false` and revoked rows are both skipped. A recorded refusal
+ * and a withdrawn consent are each facts worth keeping and neither is
+ * permission.
  */
 export async function hasAcceptedCurrentTerms(
   client: Client,
   userId: string,
 ): Promise<boolean> {
-  return (await acceptedTermsVersion(client, userId)) === POLICY_VERSION;
+  const consent = await client.consent.findFirst({
+    where: {
+      userId,
+      kind: "terms",
+      granted: true,
+      revokedAt: null,
+      policyVersion: POLICY_VERSION,
+    },
+    select: { id: true },
+  });
+  return consent !== null;
 }
 
 /**

@@ -1,6 +1,10 @@
 import "dotenv/config";
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient, type LotStatus } from "@prisma/client";
+// Relative, not the "@/" alias: no other e2e spec uses it, so its
+// resolution under Playwright is unproven and this is not the change
+// to find that out in.
+import { POLICY_VERSION } from "../../src/server/identity/terms";
 
 /*
  * Bidding from the browser, and the worker that closes lots.
@@ -87,6 +91,22 @@ test.beforeAll(async () => {
     dateOfBirth: new Date("1988-04-11"),
     accountType: "individual" as const,
     emailVerifiedAt: new Date(),
+    /*
+     * What registration leaves behind, and placeBid now requires: a
+     * granted terms consent naming the version in force. Without it
+     * these bidders are refused before the amount is ever read, and
+     * every assertion downstream measures the wrong refusal.
+     */
+    consents: {
+      create: [
+        {
+          kind: "terms" as const,
+          granted: true,
+          policyVersion: POLICY_VERSION,
+          wording: "Приемам общите условия.",
+        },
+      ],
+    },
   };
 
   const approved = await prisma.user.create({

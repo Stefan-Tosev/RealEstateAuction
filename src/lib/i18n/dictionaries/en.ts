@@ -188,6 +188,7 @@ export const en: Dictionary = {
     place: "Bid {amount}",
     placing: "Submitting…",
     signInToBid: "Sign in to bid",
+    acceptTerms: "Accept the updated terms to bid",
     notApproved: "Your account is awaiting approval. We will let you know when it is ready.",
     needDeposit: "This lot requires a deposit. Get in touch to lodge one.",
     notOpen: "Bidding is not open for this lot.",
@@ -209,6 +210,22 @@ export const en: Dictionary = {
     errorGeneric: "That bid was not accepted. Please try again.",
     accepted: "Your bid was accepted.",
     acceptedExtended: "Your bid was accepted and extended the clock.",
+  },
+  termsAccept: {
+    heading: "Accept the updated terms",
+    intro:
+      "Our terms have changed since you last agreed to them. Read them and accept the new version to carry on bidding.",
+    version: "Version {version}",
+    placeholder:
+      "The full text of the bidder terms will appear here. It has not been drafted yet, so this version is a placeholder and is not a legal document.",
+    checkbox: "I have read and accept the bidder terms.",
+    submit: "Accept and continue",
+    errorNotTicked: "Tick the box to accept the terms.",
+    signin: "Sign in to accept the terms.",
+    accepted: "Thank you — your acceptance has been recorded.",
+    alreadyAccepted: "You have already accepted the current version of the terms.",
+    continue: "Continue",
+    back: "Back",
   },
   footer: {
     rights: "All rights reserved.",

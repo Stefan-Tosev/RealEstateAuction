@@ -193,6 +193,65 @@ test.describe("what the panel offers each viewer", () => {
     await expect(page.getByRole("button", { name: /^Bid / })).toHaveCount(0);
   });
 
+  test("sends a bidder on stale terms to accept them, and lets them bid after", async ({
+    page,
+  }) => {
+    /*
+     * The whole point of the gate having a door. placeBid refuses anyone
+     * whose latest granted consent names an older version, so without
+     * this route a bidder is locked out of an auction with a message
+     * telling them to do something the site does not offer.
+     */
+    await prisma.consent.updateMany({
+      where: { userId: approvedId, kind: "terms" },
+      data: { policyVersion: "2025-01-01" },
+    });
+
+    try {
+      await signIn(page, APPROVED_EMAIL);
+      await page.goto(`/en/lots/${SLUG}`);
+
+      // No bid affordance at all while the terms are stale.
+      await expect(page.getByRole("button", { name: /^Bid / })).toHaveCount(0);
+
+      await page.getByRole("link", { name: /Accept the updated terms/i }).click();
+      await expect(page).toHaveURL(/\/en\/terms\/accept/);
+
+      // Unticked on arrival: pre-ticked consent is not consent.
+      const box = page.getByRole("checkbox");
+      await expect(box).not.toBeChecked();
+
+      // Submitting without ticking is refused rather than assumed.
+      await page.getByRole("button", { name: "Accept and continue" }).click();
+      await expect(page.getByText("Tick the box to accept the terms.")).toBeVisible();
+
+      await box.check();
+      await page.getByRole("button", { name: "Accept and continue" }).click();
+
+      /*
+       * Straight back to the lot they came from, with the bid button
+       * present again. Landing anywhere else means the returnTo was lost
+       * and the bidder has to find their way back mid-auction.
+       */
+      await expect(page).toHaveURL(new RegExp(`/en/lots/${SLUG}$`));
+      await expect(page.getByRole("button", { name: /^Bid / })).toHaveCount(1);
+
+      /*
+       * The record is what this exists for: a second row, appended, with
+       * the old one untouched.
+       */
+      const consents = await prisma.consent.findMany({
+        where: { userId: approvedId, kind: "terms" },
+        select: { policyVersion: true },
+      });
+      expect(consents.map((c) => c.policyVersion).sort()).toEqual(["2025-01-01", "2026-08-01"]);
+    } finally {
+      await prisma.consent.deleteMany({
+        where: { userId: approvedId, kind: "terms", policyVersion: "2025-01-01" },
+      });
+    }
+  });
+
   test("offers nothing to bid on during the preview", async ({ page }) => {
     /*
      * A PUBLISHED lot is a preview — bidding has not opened. The absence

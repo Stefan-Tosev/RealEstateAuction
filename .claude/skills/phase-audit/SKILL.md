@@ -18,6 +18,24 @@ Every defect these audits have found was invisible to a green suite.
   keep building, and that bias belongs to the one being asked.
 - Ad hoc, whenever a claim rests on somebody having looked at it.
 
+## Delegate the sweep
+
+The probes below are read-heavy: many files, most of which turn out to
+be fine. Reading them in the main session fills it with file dumps and
+ends it early, which is the specific way these audits die half-finished.
+
+So **spawn a subagent for the sweep** — `Explore` for locating and
+reading, `general-purpose` when it needs to run the suite or make an
+assertion fail. Hand it: the phase under audit, the probes it should
+work through, and an instruction to return *findings with evidence* —
+mechanism, the command or edit that proved it, and production-defect
+versus test-only — not file contents.
+
+Do the interpretation, the fixes and the write-ups in the main session.
+The agent finds; you decide. Never accept a finding it did not prove:
+"this looks wrong" from an agent is the same claim as "I looked at it"
+from a human, and probe 1 exists to catch exactly that.
+
 ## The probes
 
 Work through these against the phase's actual code, not from memory.
@@ -83,6 +101,33 @@ bidder-id serialisation was dev-only and needed scoping, not fixing.
 Fix what is contained. Flag the rest in `docs/open-items.md` with enough
 causal detail that it can be picked up cold — what happened, why, and
 the routes to closing it.
+
+## Two things to do while you are here
+
+Both are cheap, and this is the only moment either is reliably done.
+
+**Re-read and extend the irreversible list** — the three to five things
+in this repo that genuinely cannot be undone. Phase 2 adds deposits and
+approvals; a list named once at the top of a project is stale by the
+third phase and quietly stops matching the code. The list is what makes
+the level checkable: if a diff touches one of these nouns it is
+irreversible work, and no judgement call is involved.
+
+**Read `docs/untested.md`** — the append-only ledger of skips: date,
+what is untested, what it would have caught. This is the one moment it
+is meant to be read. Items are cleared by marking them cleared with a
+date, never by deleting them, so "flagged in August, still open in
+November" stays visible.
+
+It is a different file from `docs/open-items.md` and they must not be
+merged. `open-items.md` is a snapshot of the open set, with closed items
+deliberately removed. The ledger is a history, and its value is the
+duration it exposes. One deletes, the other never does.
+
+Do not test the ledger by asking whether it is empty — an absence of
+entries reads identically to health. Ask instead: **what is the last
+thing we decided not to test?** If nobody can name one, it was not
+discipline.
 
 ## The discipline this rests on
 

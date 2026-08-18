@@ -89,7 +89,27 @@ describe("verifyBidderCredentials", () => {
     /*
      * Same enumeration oracle the admin login had: skipping the Argon2
      * verify for an unknown address returns in ~0ms while a wrong
-     * password costs ~31ms.
+     * password costs ~36ms. verifyBidderCredentials avoids it by
+     * verifying against a dummy hash when there is no user, so both
+     * paths pay for one Argon2 verification.
+     *
+     * Medians of several samples, not one pair each. A single pair was
+     * what this asserted before, and on 18 August 2026 it failed in CI
+     * at 9.27 against a bound of 5 while the property was completely
+     * intact: one call had stalled under parallel load. Measured idle,
+     * the two paths sit at p50 36.6ms and 36.0ms — a median ratio of
+     * 1.016 — but individual samples range 32ms to 48ms here and much
+     * wider on a loaded CI runner.
+     *
+     * That mattered more than an ordinary flake. This assertion guards a
+     * security property, and a test that cries wolf is one whose
+     * failures get waved through; the one time it was right would have
+     * looked exactly like the times it was wrong.
+     *
+     * The warm-up is not padding. getDummyHash() is computed lazily and
+     * cached, so the first unknown-address call pays an extra hash and
+     * runs *slower* — the wrong direction for a leak, but noise either
+     * way.
      */
     const time = async (email: string) => {
       const t0 = performance.now();
@@ -97,12 +117,32 @@ describe("verifyBidderCredentials", () => {
       return performance.now() - t0;
     };
 
-    const existing = await time(emails.verified);
-    const missing = await time(`${PREFIX}nobody@example.bg`);
+    const missingEmail = `${PREFIX}nobody@example.bg`;
 
-    const ratio = Math.max(existing, missing) / Math.max(Math.min(existing, missing), 0.01);
-    expect(ratio).toBeLessThan(5);
-  });
+    await time(emails.verified);
+    await time(missingEmail);
+
+    const existing: number[] = [];
+    const missing: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      existing.push(await time(emails.verified));
+      missing.push(await time(missingEmail));
+    }
+
+    const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+    const e = median(existing);
+    const m = median(missing);
+    const ratio = Math.max(e, m) / Math.max(Math.min(e, m), 0.01);
+
+    /*
+     * Bound at 2 rather than 5. A real oracle is not a near miss — the
+     * unknown path would skip Argon2 entirely and return in about a
+     * millisecond against 36, a ratio in the tens. Tightening the bound
+     * while widening the sample makes the assertion both stricter about
+     * the thing it guards and quieter about the thing it does not.
+     */
+    expect(ratio).toBeLessThan(2);
+  }, 30_000);
 
   it("applies NFKC so a password normalises the same way it was hashed", async () => {
     // Composed vs decomposed accents look identical on screen; without

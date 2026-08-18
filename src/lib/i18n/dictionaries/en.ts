@@ -202,6 +202,8 @@ export const en: Dictionary = {
     errorNotOnStep: "Bids must be exactly the next step.",
     errorClosed: "Bidding has closed.",
     errorNotApproved: "Your account is not approved for bidding.",
+    errorTermsOutdated:
+      "The terms have changed. Accept the new version before bidding.",
     errorNoDeposit: "No deposit is recorded for this lot.",
     errorNotOpen: "Bidding is not open.",
     errorGeneric: "That bid was not accepted. Please try again.",

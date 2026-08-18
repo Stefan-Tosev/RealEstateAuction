@@ -2,6 +2,7 @@ import type { AccountType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { enqueue } from "@/server/notifications/outbox";
 import { hashPassword } from "./password";
+import { POLICY_VERSION } from "./terms";
 import { checkPassword, normalisePassword, type PasswordCode } from "./password-policy";
 import {
   checkDateOfBirth,
@@ -29,8 +30,13 @@ import { issueVerificationToken } from "./verification";
  * status code, and the time taken.
  */
 
-/** The current terms version. Bump when the wording changes. */
-export const POLICY_VERSION = "2026-08-01";
+/*
+ * Re-exported so existing callers keep working. It lives in ./terms
+ * now, beside the check that a bidder has actually accepted it -- the
+ * version is a property of the terms, not of signing up, and placeBid
+ * needs it without needing registration.
+ */
+export { POLICY_VERSION };
 
 export type FieldError = { field: string; code: string };
 

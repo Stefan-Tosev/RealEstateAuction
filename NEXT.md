@@ -67,6 +67,13 @@ it. Self-contained, and blocked on nothing.
   sent. There is no error anywhere — registration simply never
   completes, and the cause is invisible unless you know to look in
   `outbox`.
+- **Do not bump `POLICY_VERSION`** in
+  `src/server/identity/terms.ts` until there is a page where a bidder
+  can accept the new terms. `placeBid` refuses anyone whose latest
+  granted consent names an older version, so moving the string locks
+  every existing bidder out of bidding at once. The day the lawyer's
+  real terms arrive is exactly the day this fires — see
+  `docs/open-items.md` §3.10.
 - **Run `npm run clean` when switching between the dev and prod e2e
   suites.** The prod run leaves a production build in `.next` and the
   dev run then recompiles from it slowly enough to produce dozens of

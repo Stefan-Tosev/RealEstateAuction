@@ -119,6 +119,48 @@ with a reason and a named operator against it. What is NOT built, because
 it cannot be, is the right to keep the money. That exists only if the
 bidder terms say so (see 1.2), and they do not yet exist.
 
+### 2.5 What happens to the runner-up when the winner defaults
+
+**Status: open, awaiting a Bulgarian lawyer. Not settled.**
+
+The intended commercial flow is that a winner who fails to complete
+forfeits their deposit, and the lot is then offered to the next highest
+bidder.
+
+The first half is standard and clean. The second half has a problem that
+drafting has to solve rather than code: **an underbidder's bid dies when
+the auction closes.** They bid into a particular competitive moment; two
+weeks later they have defaulted on nothing, because they never won.
+Coming back with "it is yours at your last bid" is a *new offer*, and
+they are free to decline. There is no deposit to forfeit, because there
+was no breach.
+
+It only works otherwise if the bidder terms explicitly keep an
+underbidder bound for a stated window after close — an unusual term, and
+one bidders read as "if I lose I am still on the hook for a fortnight".
+Some will not bid at all.
+
+It also collides directly with the refund window. You cannot both hold
+the runner-up to their bid and return their deposit promptly; those are
+the same decision, not two.
+
+**The recommendation to put to the lawyer, agreed 18 August 2026:**
+
+- Hold **only the second-highest bidder**, for a short defined window —
+  five working days.
+- Release every other deposit as soon as the winner has paid and the
+  commission is settled.
+- Do not cascade past #2. It multiplies the number of people whose money
+  is being held for very little recovery.
+- The winner's forfeiture is the clean, standard part. It is the
+  **underbidder's** position that needs drafting.
+
+Depends on 1.2, which does not exist yet — this is a clause inside the
+bidder terms, not a separate document. Nothing should be built against
+it until a lawyer has confirmed it is enforceable in Bulgaria; a gate
+written to the wrong rule is worse than no gate, because it looks
+decided.
+
 ---
 
 ## 3. Code, still open
@@ -217,6 +259,76 @@ sees.
 
 Worth doing before real traffic, not before launch: Core Web Vitals only
 starts mattering when someone is measuring them.
+
+### 3.10 No page for accepting changed terms
+
+`placeBid` now refuses a bidder whose latest granted `terms` consent
+does not name the current `POLICY_VERSION`, and the refusal renders in
+both languages. What does not exist is the page that lets them accept
+the new version — so the gate is a door with no handle on the bidder's
+side.
+
+Nothing is broken today, because `POLICY_VERSION` has not moved since
+registration was built and the gate therefore never fires. The danger is
+the day it does move, which is the day the lawyer's real bidder terms
+arrive: every existing bidder is locked out of bidding at once, with a
+message telling them to do something the site offers no way to do.
+
+The guard against that is a comment at the constant itself in
+`src/server/identity/terms.ts`, where anyone about to bump it is
+already looking. That is deliberate — a warning somewhere else is a
+warning nobody reads at the moment it matters.
+
+Closing it needs a page rendering the current terms with a single
+unticked checkbox, a server action calling `recordTermsAcceptance`, and
+bilingual copy. `recordTermsAcceptance` appends and never mutates, so
+the prior consent survives as evidence of what was agreed before.
+
+### 3.11 The sign-in timing test was load-sensitive
+
+**Done** — 18 August 2026.
+
+`tests/unit/bidder-sign-in.test.ts` asserts that verifying credentials
+costs comparable time whether or not the address exists — the anti-
+enumeration property from `docs/server-validation.md` §5. It took **one
+sample of each path** and compared the ratio against 5.
+
+It failed once in a full parallel run at 9.27, then passed alone and
+passed on a re-run of the whole suite, with nothing in that path
+changed.
+
+Measured properly before touching it, 30 interleaved samples on an idle
+machine:
+
+```
+existing  min 32.4  p50 36.6  p90 44.0  max 48.1
+missing   min 32.5  p50 36.0  p90 45.5  max 48.8
+median ratio: 1.016
+single-sample pairs with ratio >= 5: 0/30
+```
+
+The property is intact, and structurally so: `verifyBidderCredentials`
+calls `verifyPassword` on every path, against a dummy hash produced by
+the same `hashPassword` when there is no user. No branch skips the
+Argon2 work, so the ~1ms result that a ratio of 9.27 would otherwise
+imply is not reachable. One call stalled under parallel load; that is
+all.
+
+Now sampled seven times per path and compared on **medians**, with the
+bound tightened from 5 to 2 — a real oracle is not a near miss, it is
+~1ms against ~36ms. Reintroducing the oracle deliberately produces a
+ratio of 17.0 against the bound of 2, so the assertion still catches
+what it exists for.
+
+One incidental finding, fixed by the warm-up: `getDummyHash()` is
+computed lazily and cached, so the *first* unknown-address call paid an
+extra hash and ran slower than the known-address one. The wrong
+direction for a leak, but noise the test should not have been sampling.
+
+Worth writing down rather than just fixing: a test guarding a security
+property that cries wolf is worse than one that is merely flaky,
+because its failures get waved through — and the one time it is right
+looks exactly like the times it was not.
 
 ---
 

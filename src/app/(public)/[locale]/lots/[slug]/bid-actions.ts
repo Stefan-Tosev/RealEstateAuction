@@ -105,6 +105,8 @@ export async function placeBidAction(
       return { ok: false, code: "errorClosed" };
     case "NOT_APPROVED":
       return { ok: false, code: "errorNotApproved" };
+    case "TERMS_OUTDATED":
+      return { ok: false, code: "errorTermsOutdated" };
     case "NO_DEPOSIT":
       return { ok: false, code: "errorNoDeposit" };
     case "NOT_OPEN":

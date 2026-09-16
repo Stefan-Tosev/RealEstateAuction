@@ -4,7 +4,7 @@ Companion to `register.html` / `js/register.js`.
 
 **The client validates nothing.** `js/register.js` is a UX layer that an attacker never executes. Every rule below must be enforced server-side, independently, on every request. Where a rule already exists client-side, the server rule must be *identical* — see [§9 Parity](#9-parity-testing) for how to stop the two drifting apart.
 
-Scope is **Stage 1 only**: account creation. ЕГН, identity documents and proof of funds belong to Stage 2 and are out of scope here.
+Scope is **Stage 1 only**: account creation. Identity documents and proof of funds belong to Stage 2 and are out of scope here. **ЕГН is not collected at any stage** — decided 16 September 2026; see `docs/lawyer-questions.md` §12.
 
 ---
 

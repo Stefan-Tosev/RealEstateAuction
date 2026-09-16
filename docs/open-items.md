@@ -56,7 +56,7 @@ would lose them, which is the failure this project already hit once when
 files went to `public/`. There is a `MediaStorage` interface so a move to
 S3/R2 is contained, but a box with a disk needs no move at all.
 
-EU residency matters: Stage 2 will hold ЕГН and identity documents.
+EU residency matters: Stage 2 holds identity documents and proof of funds. **It does not hold ЕГН** — decided 16 September 2026, see `CLAUDE.md`. That removes the question of whether hosting must be *Bulgarian* specifically; an EU box is enough. Revisit only if ЗМИП turns out to apply.
 
 **When it exists, back up Postgres *and* the `private/` directory.**
 Deleting a row does not delete the file, and losing legal packs is
@@ -262,27 +262,35 @@ starts mattering when someone is measuring them.
 
 ### 3.10 No page for accepting changed terms
 
-`placeBid` now refuses a bidder whose latest granted `terms` consent
-does not name the current `POLICY_VERSION`, and the refusal renders in
-both languages. What does not exist is the page that lets them accept
-the new version — so the gate is a door with no handle on the bidder's
-side.
+**Done** — 18 August 2026.
 
-Nothing is broken today, because `POLICY_VERSION` has not moved since
-registration was built and the gate therefore never fires. The danger is
-the day it does move, which is the day the lawyer's real bidder terms
-arrive: every existing bidder is locked out of bidding at once, with a
-message telling them to do something the site offers no way to do.
+`placeBid` refuses a bidder whose latest granted `terms` consent does
+not name the current `POLICY_VERSION`, and the refusal renders in both
+languages. The gate landed without a way through it, which made it a
+wall rather than a door: the day `POLICY_VERSION` moved — the day the
+lawyer's real bidder terms arrive — every existing bidder would have
+been locked out of bidding at once, told to do something the site
+offered no way to do.
 
-The guard against that is a comment at the constant itself in
-`src/server/identity/terms.ts`, where anyone about to bump it is
-already looking. That is deliberate — a warning somewhere else is a
-warning nobody reads at the moment it matters.
+`/[locale]/terms/accept` closes that. A stale bidder gets no bid
+affordance and a link instead, accepts once, and returns to the exact
+lot they came from with the button restored. `getBiddingView` carries
+the same check in the same position as the gate in `placeBid`,
+deliberately — if the panel and the engine disagree, the page promises
+something the engine refuses and the bidder finds out by losing a lot.
 
-Closing it needs a page rendering the current terms with a single
-unticked checkbox, a server action calling `recordTermsAcceptance`, and
-bilingual copy. `recordTermsAcceptance` appends and never mutates, so
-the prior consent survives as evidence of what was agreed before.
+The consent is unticked on arrival, refused when submitted unticked,
+appended rather than updated, and idempotent. The wording travels from
+the page that rendered it, so the record says what the bidder actually
+read. `safeReturnTo` is extracted and tested rather than inlined: this
+page is what a bidder is emailed a link to when the terms change, which
+is the same shape as the phishing message that would abuse a `returnTo`
+taken at face value.
+
+**What remains is the document, not the mechanism.** The page renders
+placeholder copy. `POLICY_VERSION` must not move until the lawyer's
+text is in that page, or the record will say every bidder accepted a
+placeholder.
 
 ### 3.11 The sign-in timing test was load-sensitive
 

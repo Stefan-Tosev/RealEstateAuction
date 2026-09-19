@@ -81,6 +81,7 @@ worth seeing; three rewrites that quietly drop it are not.
 - 19 August 2026 — plan set for 20 August. Nothing attempted yet.
 - 16 September 2026 — **none of the four happened**, confirmed by Stefan. Four weeks. The ЕГН question (item 1, five minutes) has now been open since 19 August and still blocks the hosting choice, the DPIA question and the retention obligation. The session went to AutoGlow instead: its van was bought and had to be driven back from the Netherlands.
 - 16 September 2026, later the same evening — **item 1 is done.** ЕГН is not collected unless ЗМИП compels it; five documents were made to agree and §12 now records the decision. The remaining question is the lawyer's: is the platform an обязано лице under ЗМИП? If yes, this reverses and §4 becomes the most important section on the list.
+- 19 September 2026 — **items 2, 3 and 4 still not done**, confirmed by Stefan. Nothing blocks them now; ЕГН was the last blocker, and it was settled three days ago. The ЕГН commit `e21d859` was also found unpushed on `egn-decided`.
 
 ## Needs Stefan, not the assistant
 

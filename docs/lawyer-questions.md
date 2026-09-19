@@ -191,9 +191,11 @@ they send us property, we send them legal-pack work.
    bidders.
 3. Is a DPIA required, given identity documents plus financial data?
 
-**Note:** ЕГН is deliberately not collected anywhere in the design (§9).
-Confirm nothing in the KYC flow reintroduces it. **See §12 — the rest of
-the repository disagrees with that sentence.**
+**Note:** ЕГН is deliberately not collected anywhere in the design, and as
+of 16 September 2026 the rest of the repository agrees — see §12. Confirm
+nothing in the KYC flow reintroduces it. Question 3 above (is a DPIA
+required?) is asked on that basis: identity documents and financial data,
+but no national identifier.
 
 ---
 
@@ -269,26 +271,49 @@ bid records which version was in force when it arrived.
 
 ---
 
-## 12. Settle this before the meeting: is ЕГН collected or not?
+## 12. ЕГН — decided, and the one question that could reverse it
 
-Not a question for the lawyer. A contradiction inside this repository
-that will produce a wrong answer if it reaches her unresolved.
+**Settled 16 September 2026. ЕГН is not collected, at any stage.**
 
-- `docs/lawyer-questions.md` §9 (above): "ЕГН is deliberately not
-  collected anywhere in the design."
-- `docs/open-items.md` §1.4: "Stage 2 will hold ЕГН and identity
-  documents."
-- `CLAUDE.md`: "ЕГН, identity documents and proof of funds belong to
-  Stage 2."
+This section used to record a contradiction: §9 said ЕГН was never
+collected, while `docs/open-items.md` §1.4 and `CLAUDE.md` both said it
+arrived at Stage 2. All three now say the same thing.
 
-Two of the three say it is collected at Stage 2; one says it never is.
-Whichever is true, the other documents are wrong and have been guiding
-decisions. It also changes §9's answers materially: whether a DPIA is
-required, what the retention obligation is, and whether Bulgarian
-hosting is needed all turn on it.
+**The reasoning, so it is not re-litigated.** The platform needs a
+bidder to be *identifiable*, which is not the same as holding a national
+identifier:
 
-**Decide first, then ask.** If ЕГН is collected, the AML questions in §4
-become the most important ones on this list.
+- A deposit arrives by **bank transfer from an account in the bidder's
+  own name**. The bank has already identified that person to a legal
+  standard; the account is the identity, and a court can resolve it from
+  the transfer if it ever must.
+- The **notary** identifies both parties at transfer and records ЕГН on
+  the нотариален акт. It never passes through us.
+- A **forfeited deposit is self-enforcing** — we already hold the money,
+  so keeping it requires finding nobody.
+
+The product rule that makes this hold: **no money from a traceable
+account in the bidder's own name, no bidding.** Cash, card payments and
+third-party transfers all break the chain and must not be accepted. That
+belongs in the Phase 2 deposit design, not only here.
+
+**What this unblocks.** Hosting need only be EU, not Bulgarian
+specifically. The DPIA question in §9 is asked on the basis of identity
+documents and financial data without a national identifier. Retention is
+lighter.
+
+**Ask the lawyer (this is the part that is genuinely hers):**
+
+1. **Is the platform an обязано лице under ЗМИП?** Real-estate
+   intermediaries are on that list. If we are, client identification
+   becomes a statutory duty with a multi-year record-keeping obligation,
+   ЕГН comes with it, and this decision reverses. See §4.
+2. If we are not an обязано лице, does anything else in Bulgarian law
+   require us to identify a bidder before accepting a deposit?
+
+**If the answer to 1 is yes,** §4's AML questions become the most
+important ones on this list, a DPIA is required, and the retention
+schedule has to be written before Phase 2 builds deposits.
 
 ---
 

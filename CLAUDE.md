@@ -115,7 +115,7 @@ When two forms share a page, give their fields distinct DOM ids. Duplicate ids m
 
 ### Registration is Stage 1 only
 
-Account creation. ЕГН, identity documents and proof of funds belong to Stage 2, behind manual review. The API returns **error codes, never prose** — the client owns the copy so it can render in either language.
+Account creation. Identity documents and proof of funds belong to Stage 2, behind manual review. **ЕГН is not collected — at any stage** (decided 16 September 2026). Identity rests on a bank transfer from an account in the bidder's own name and on the notary at transfer, who takes ЕГН directly from the person and never through us. The platform needs a bidder to be *identifiable*, not a national identifier in its own custody, and a forfeited deposit is self-enforcing because we already hold the money. **The one thing that would reverse this is ЗМИП**: if the platform is an обязано лице, identification becomes a statutory duty with a multi-year record-keeping obligation. That question is open — `docs/lawyer-questions.md` §4. The API returns **error codes, never prose** — the client owns the copy so it can render in either language.
 
 Duplicate and new addresses are indistinguishable in status, body **and timing**. Both paths do the Argon2 work and are padded to a common floor. Do not add a "check email availability" endpoint; it is an enumeration oracle by construction.
 

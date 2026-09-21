@@ -304,6 +304,29 @@ describe("the copy itself", () => {
     expect(rendered!.text).toMatch(/numbered rather than named/i);
   });
 
+  it("renders an invoice with a signed link and the amount owed", () => {
+    /*
+     * The link is minted at render time, so its thirty days start when
+     * the message is genuinely sent rather than when it was queued.
+     * The amount is in the text as well, so a recipient whose link has
+     * expired by the time they open it still knows what is owed.
+     */
+    const rendered = render("invoice_issued", {
+      locale: "en",
+      baseUrl: "https://example.test",
+      payload: { invoiceId: "11111111-1111-4111-8111-111111111111", number: "0000000007", totalMinor: "276000" },
+      lot: null,
+    });
+
+    expect(rendered).not.toBeNull();
+    expect(rendered!.subject).toContain("0000000007");
+    // formatMoney drops the empty decimals: €2,760, not €2,760.00.
+    expect(rendered!.text).toContain("€2,760");
+    expect(rendered!.text).toMatch(
+      /https:\/\/example\.test\/en\/invoices\/11111111-1111-4111-8111-111111111111\?exp=\d+&sig=[\w-]+/,
+    );
+  });
+
   it("covers every template the application enqueues", () => {
     /*
      * The other direction: an enqueue site whose name nothing renders.
@@ -323,6 +346,7 @@ describe("the copy itself", () => {
       "viewing_cancelled_by_house",
       "lot_bid_log",
       "sale_next_steps",
+      "invoice_issued",
     ];
 
     expect(TEMPLATE_NAMES.sort()).toEqual(enqueued.sort());

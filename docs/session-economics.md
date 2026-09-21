@@ -35,3 +35,29 @@ the reader has to establish which half to believe.
 §3.10, which still read as open. When a session closes an open item,
 closing the item in the ledger belongs to the same commit as the code,
 not to a later tidy-up that may never come.
+
+## 21 September 2026 — the database was not running, and nothing said so
+
+The expensive part was not the work. It was running the unit suite
+against a Postgres that was not there: nineteen tests failed in 82
+seconds, every one of them reporting `Can't reach database server`, and
+the first read of the log looked like the change had broken invoicing.
+Docker Desktop itself was closed, so `docker compose up -d` failed too,
+with a message about a named pipe rather than about Docker.
+
+**Next time: check the database before running anything that touches
+it.** `docker compose ps` costs nothing and answers in one line. The
+suite takes four minutes to tell you the same thing, badly.
+
+Two smaller ones, both worth the minute they cost:
+
+- A full-suite failure in `bidding.test.ts` looked like a regression and
+  was an intermittent cross-file race — those assertions counted the
+  whole outbox table while `dispatch.test.ts` was filling it in
+  parallel. Re-running the suite unchanged was what proved it, and it is
+  the cheapest possible test of "is this mine?".
+- The seller-facing page was checked by fetching it from a running dev
+  server with a script, rather than by writing a Playwright spec. Four
+  URLs, four lines of output, about a minute. The spec would have been
+  the right tool if the behaviour needed keeping; for "does this page
+  render at all" it would have cost ten minutes to learn the same thing.

@@ -2,6 +2,7 @@ import type { FeeParty } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/server/audit/record";
 import type { AdminActor } from "@/server/identity/authz";
+import { enqueue } from "@/server/notifications/outbox";
 import { invoiceSeries, issuerBlockers } from "./issuer";
 
 /*
@@ -114,6 +115,9 @@ export async function raiseInvoice(
     const series = invoiceSeries();
     const number = await nextNumber(tx, series);
 
+    const netMinor = fees.reduce((total, fee) => total + fee.netMinor, 0n);
+    const vatMinor = fees.reduce((total, fee) => total + fee.vatMinor, 0n);
+
     const invoice = await tx.invoice.create({
       data: {
         number,
@@ -124,8 +128,8 @@ export async function raiseInvoice(
         billedAddress: billed.address,
         billedEik: billed.eik,
         billedVat: billed.vat,
-        netMinor: fees.reduce((total, fee) => total + fee.netMinor, 0n),
-        vatMinor: fees.reduce((total, fee) => total + fee.vatMinor, 0n),
+        netMinor,
+        vatMinor,
       },
       select: { id: true, number: true },
     });
@@ -134,6 +138,32 @@ export async function raiseInvoice(
       where: { id: { in: fees.map((fee) => fee.id) } },
       data: { status: "invoiced", invoiceId: invoice.id },
     });
+
+    /*
+     * Enqueued in the same transaction as the invoice, so the two cannot
+     * disagree: no email for an invoice that rolled back, and no invoice
+     * that silently never reached the party it bills.
+     *
+     * Addressed to whichever counterparty the fees named — a seller for
+     * commission and entry fees, a bidder for the buyer's premium. The
+     * link itself is minted at dispatch rather than here, so its thirty
+     * days start when the message is actually sent.
+     */
+    await enqueue(
+      {
+        ...(sellerId ? { sellerId } : { userId: userId! }),
+        channel: "email",
+        template: "invoice_issued",
+        payload: {
+          invoiceId: invoice.id,
+          number: invoice.number,
+          // Stated in the message itself, so a recipient who never
+          // clicks still knows what is owed.
+          totalMinor: (netMinor + vatMinor).toString(),
+        },
+      },
+      tx,
+    );
 
     return invoice;
   });

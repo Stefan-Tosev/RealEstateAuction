@@ -1191,6 +1191,16 @@ describe("outbid notifications (§4)", () => {
     expect(await prisma.outbox.count({ where: { userId: bidders[1], template: "outbid" } })).toBe(0);
   });
 
+  /*
+   * Scoped to this file's own bidders, never a bare count of the table.
+   * vitest runs test files in parallel and dispatch.test.ts queues its
+   * own `outbid` fixtures, so a global count here is really an assertion
+   * about what some other file is doing at the time — which passes or
+   * fails on timing rather than on behaviour.
+   */
+  const outbidCount = () =>
+    prisma.outbox.count({ where: { template: "outbid", userId: { in: bidders } } });
+
   it("does not tell anyone they outbid themselves", async () => {
     /*
      * Raising your own highest bid is legitimate — with fixed steps it
@@ -1200,21 +1210,21 @@ describe("outbid notifications (§4)", () => {
     await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
     await placeBid({ lotId, userId: bidders[0], amountMinor: 10_500_000n, idempotencyKey: key() });
 
-    expect(await prisma.outbox.count({ where: { template: "outbid" } })).toBe(0);
+    expect(await outbidCount()).toBe(0);
   });
 
   it("queues nothing for a bid that was refused", async () => {
     await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
     await placeBid({ lotId, userId: bidders[1], amountMinor: 1n, idempotencyKey: key() });
 
-    expect(await prisma.outbox.count({ where: { template: "outbid" } })).toBe(0);
+    expect(await outbidCount()).toBe(0);
   });
 
   it("queues nothing for the first bid on a lot", async () => {
     // Nobody was displaced.
     await placeBid({ lotId, userId: bidders[0], amountMinor: 10_000_000n, idempotencyKey: key() });
 
-    expect(await prisma.outbox.count({ where: { template: "outbid" } })).toBe(0);
+    expect(await outbidCount()).toBe(0);
   });
 });
 

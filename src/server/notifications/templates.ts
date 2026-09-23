@@ -1,6 +1,7 @@
 import type { Locale } from "@/lib/i18n/locales";
 import { formatDateTime } from "@/lib/datetime";
 import { formatMoney } from "@/lib/money";
+import { signInvoicePath } from "@/server/fees/invoice-link";
 
 /*
  * Email copy, in both languages.
@@ -54,6 +55,19 @@ const dateStr = (payload: Record<string, unknown>, key: string, locale: Locale):
 
 function lotUrl(context: TemplateContext): string {
   return context.lot ? `${context.baseUrl}/${context.locale}/lots/${context.lot.slug}` : "";
+}
+
+/**
+ * A signed invoice link in the recipient's own language.
+ *
+ * The signature covers the invoice id and the expiry, not the locale, so
+ * a seller who forwards this to an English-speaking accountant can swap
+ * /bg/ for /en/ and the link still opens.
+ */
+function invoiceUrl(context: TemplateContext): string {
+  const invoiceId = str(context.payload, "invoiceId");
+  if (!invoiceId) return "";
+  return `${context.baseUrl}/${context.locale}${signInvoicePath(invoiceId)}`;
 }
 
 function lotLine(context: TemplateContext): string {
@@ -216,6 +230,31 @@ const TEMPLATES: Record<string, Record<Locale, Renderer>> = {
     en: (c) => ({
       subject: "The viewing has been cancelled",
       text: `Hello,\n\nWe are sorry — the viewing you were booked onto has been cancelled at our end.\n\n${lotLine(c)}\n\nWe will announce new dates as soon as we can. They will appear here:\n${lotUrl(c)}${SIGN_OFF.en}`,
+    }),
+  },
+
+  /*
+   * An invoice, to the party it bills — a seller for the entry fee and
+   * commission, a bidder for the buyer's premium.
+   *
+   * The link is signed here rather than at enqueue time so its thirty
+   * days run from when the message is genuinely sent, not from when it
+   * was queued behind a provider outage. A seller has no account to sign
+   * in to, so the link is the only way in and carries its own proof.
+   *
+   * The amount is stated in the message as well as behind the link: a
+   * recipient who never clicks still knows what is owed, and a link that
+   * has expired by the time it is opened does not take the number with
+   * it.
+   */
+  invoice_issued: {
+    bg: (c) => ({
+      subject: `Фактура № ${str(c.payload, "number")}`,
+      text: `Здравейте,\n\nИздадохме фактура № ${str(c.payload, "number")} на стойност ${formatMoney(str(c.payload, "totalMinor") || "0", "bg")} с включено ДДС.\n\nМожете да я видите и разпечатате оттук:\n${invoiceUrl(c)}\n\nВръзката е валидна 30 дни. Ако е изтекла, пишете ни и ще изпратим нова.${SIGN_OFF.bg}`,
+    }),
+    en: (c) => ({
+      subject: `Invoice No ${str(c.payload, "number")}`,
+      text: `Hello,\n\nWe have issued invoice No ${str(c.payload, "number")} for ${formatMoney(str(c.payload, "totalMinor") || "0", "en")}, ДДС included.\n\nYou can view and print it here:\n${invoiceUrl(c)}\n\nThe link is valid for 30 days. If it has expired, write to us and we will send a new one.${SIGN_OFF.en}`,
     }),
   },
 };

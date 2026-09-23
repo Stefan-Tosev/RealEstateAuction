@@ -167,13 +167,34 @@ decided.
 
 ### 3.2 Invoices are printed, not emailed
 
-Invoices can now be raised, settled and cancelled, with gapless numbering
-and a printable sheet. What is not built is sending one — a seller gets
-no email with their invoice attached, so an operator prints it and sends
-it themselves.
+**Done** — 21 September 2026.
 
-The outbox can already address a seller, so the missing piece is a
-template and a PDF (or a signed link to the existing page).
+Raising an invoice now queues a message to the party it bills, in the
+same transaction as the invoice itself, so the two cannot come apart: no
+email for an invoice that rolled back, and no invoice that quietly never
+reached anybody. A seller gets it, and so does a bidder billed the
+buyer's premium — the outbox allows exactly one recipient, so getting
+that wrong would mean the wrong party rather than none.
+
+A signed link rather than an attached PDF. The seller-facing page at
+`/[locale]/invoices/[id]` reuses the printable sheet a browser already
+turns into a PDF, which is a great deal less machinery than a rendering
+library and has nothing to go stale when the layout changes.
+
+The link is a bearer token, which is the part to be careful about: a
+seller is a record rather than an account — §11 — so there is no session
+to check and the signature is the whole of the authorisation. It covers
+the invoice id and an expiry, runs for 30 days rather than the
+documents' five minutes because an invoice is read when the recipient
+gets round to it, and is minted at dispatch so those days start when the
+message is genuinely sent. A tampered or unsigned link answers 404, not
+403. An expired one says so and nothing else — no number, no amount, no
+party.
+
+**What remains is the wording, not the mechanism.** The sheet is headed
+ФАКТУРА and carries the issuer's own details from the environment; an
+accountant should read it before the first real one goes out, and
+`INVOICE_DEMO_MODE` keeps every invoice stamped ОБРАЗЕЦ until they do.
 
 ### 3.4 No operations view of LIVE lots
 

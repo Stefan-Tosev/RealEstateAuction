@@ -54,6 +54,13 @@ const ROUTES = [
    */
   "/bg/terms/accept",
   "/en/terms/accept",
+  /*
+   * Warmed with no signature, so both answer 404 — the point is
+   * compiling the route, not rendering an invoice. A real link needs an
+   * invoice that does not exist until a test makes one.
+   */
+  "/bg/invoices/warm",
+  "/en/invoices/warm",
 
   // Route handlers
   "/api/time",

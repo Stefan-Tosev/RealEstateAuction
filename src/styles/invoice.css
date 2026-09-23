@@ -1,0 +1,159 @@
+/* ---------------------------------------------------
+   The invoice sheet, as the party it bills sees it.
+
+   Its own file rather than a share with admin.css: those
+   rules are written against the --admin-* names, which do
+   not exist on a public page, and moving them would mean
+   restyling the admin sheet to prove this page works. The
+   two are the same document in two skins — if one changes
+   shape, check the other.
+
+   Public tokens only. Structure is royal, value is gold —
+   the total is the one gold thing here.
+--------------------------------------------------- */
+
+.invoice-page {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+
+.invoice-sheet {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 2rem;
+}
+
+.invoice-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.invoice-number {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.invoice-cancelled {
+  color: var(--color-error);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.invoice-parties {
+  display: flex;
+  gap: 2.5rem;
+  flex-wrap: wrap;
+}
+
+.invoice-parties h2 {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-royal-bright);
+  margin: 0 0 0.4rem;
+}
+
+.invoice-parties p {
+  margin: 0 0 0.15rem;
+  font-size: 0.9rem;
+}
+
+.invoice-lines {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.invoice-lines th,
+.invoice-lines td {
+  text-align: left;
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.invoice-lines thead th {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-royal-bright);
+}
+
+.invoice-lines .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.invoice-line-lot {
+  color: var(--color-ivory-dim);
+  font-size: 0.85rem;
+}
+
+.invoice-total th,
+.invoice-total td {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+/* The one gold thing on the page: the amount owed is the value. */
+.invoice-total td {
+  color: var(--color-brass-bright);
+}
+
+.invoice-expired {
+  max-width: 34rem;
+  margin: 3rem auto;
+  text-align: center;
+}
+
+/* A demo invoice must be impossible to mistake for a real one, including
+   after somebody has printed it. */
+.invoice-specimen {
+  margin: 0 0 1.5rem;
+  padding: 0.6rem 0.9rem;
+  border: 2px dashed var(--color-error);
+  border-radius: 4px;
+  color: var(--color-error);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.invoice-sheet[data-demo="true"] {
+  border-color: var(--color-error);
+}
+
+@media print {
+  /* The site shell is not part of the invoice. */
+  body > header,
+  body > footer {
+    display: none !important;
+  }
+
+  .invoice-page {
+    padding: 0;
+  }
+
+  .invoice-sheet {
+    border: 0;
+    padding: 0;
+    background: #fff;
+    color: #000;
+  }
+
+  .invoice-total td {
+    color: #000;
+  }
+
+  .invoice-specimen {
+    display: block !important;
+    border: 2px dashed #c0392b !important;
+    color: #c0392b !important;
+  }
+}

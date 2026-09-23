@@ -38,8 +38,21 @@ const createdSellerIds: string[] = [];
 let lotId = "";
 let propertyId = "";
 
+const createdUserIds: string[] = [];
+
 async function cleanup() {
   const sellerIds = [...createdSellerIds];
+  const userIds = [...createdUserIds];
+
+  /*
+   * Before the sellers and users they point at. Raising an invoice now
+   * queues the recipient's copy in the same transaction, and an outbox
+   * row holds a foreign key to whichever party it is addressed to — so
+   * deleting the seller first fails on the constraint rather than
+   * leaving a stray row, and takes the whole suite's cleanup with it.
+   */
+  await prisma.outbox.deleteMany({ where: { sellerId: { in: sellerIds } } });
+  await prisma.outbox.deleteMany({ where: { userId: { in: userIds } } });
 
   await prisma.fee.deleteMany({ where: { lot: { property: { slug: PREFIX + "prop" } } } });
   await prisma.fee.deleteMany({ where: { sellerId: { in: sellerIds } } });
@@ -50,6 +63,10 @@ async function cleanup() {
   await prisma.seller.deleteMany({ where: { id: { in: sellerIds } } });
   // Belt and braces for anything created before ids were tracked.
   await prisma.seller.deleteMany({ where: { name: { startsWith: PREFIX } } });
+  // Fees first: they carry the foreign key to the invoice.
+  await prisma.fee.deleteMany({ where: { userId: { in: userIds } } });
+  await prisma.invoice.deleteMany({ where: { userId: { in: userIds } } });
+  await prisma.user.deleteMany({ where: { id: { in: userIds } } });
   await prisma.auditLog.deleteMany({ where: { entityType: "invoice" } });
 }
 
@@ -360,5 +377,98 @@ describe("demo mode", () => {
     process.env.INVOICE_ISSUER_NAME = "Auction House EOOD";
     expect(issuer().name).toBe("Auction House EOOD");
     expect(issuer().eik).toBe(DEMO_ISSUER.eik);
+  });
+});
+
+/*
+ * The invoice reaching the party it bills.
+ *
+ * An invoice that is raised and never sent is the state this replaced:
+ * an operator printed it and posted it by hand, and whether it went at
+ * all depended on somebody remembering. The message is queued in the
+ * same transaction as the invoice, so these tests assert on the outbox
+ * row rather than on an email having been delivered — the transport is
+ * dispatch.ts's business and is tested there.
+ */
+describe("the invoice is sent to the party it bills", () => {
+  async function queuedFor(invoiceId: string) {
+    const rows = await prisma.outbox.findMany({
+      where: { template: "invoice_issued" },
+      select: { sellerId: true, userId: true, channel: true, payload: true, sentAt: true },
+    });
+    return rows.filter(
+      (row) => (row.payload as { invoiceId?: string } | null)?.invoiceId === invoiceId,
+    );
+  }
+
+  it("queues one email to the seller, carrying the number and the gross total", async () => {
+    await dueFee("entry", 30_000n, 6_000n);
+    await dueFee("commission", 200_000n, 40_000n);
+
+    const raised = await raiseInvoice(actor, lotId, "seller");
+    const queued = await queuedFor(raised.id);
+
+    expect(queued).toHaveLength(1);
+    expect(queued[0].sellerId).toBe(sellerId);
+    expect(queued[0].userId).toBeNull();
+    expect(queued[0].channel).toBe("email");
+    expect(queued[0].sentAt).toBeNull();
+
+    const payload = queued[0].payload as { number: string; totalMinor: string };
+    expect(payload.number).toBe(raised.number);
+    // Net 230 000 + ДДС 46 000. Stated in the message so a recipient who
+    // never opens the link still knows what is owed.
+    expect(payload.totalMinor).toBe("276000");
+  });
+
+  it("addresses the buyer's premium to the bidder, not to the seller", async () => {
+    /*
+     * The failure this prevents is a seller being emailed the buyer's
+     * premium — someone else's invoice, with their name and address on
+     * it. The outbox constraint allows exactly one recipient, so getting
+     * this wrong means the wrong one, not neither.
+     */
+    const bidder = await prisma.user.create({
+      data: {
+        email: `${PREFIX}${Date.now()}@example.bg`,
+        passwordHash: "not-used",
+        firstName: "Тест",
+        lastName: "Купувач",
+        dateOfBirth: new Date("1990-01-01"),
+        accountType: "individual",
+        emailVerifiedAt: new Date(),
+      },
+      select: { id: true },
+    });
+    createdUserIds.push(bidder.id);
+
+    await prisma.fee.create({
+      data: {
+        lotId,
+        userId: bidder.id,
+        party: "buyer",
+        kind: "premium",
+        basis: "percent",
+        netMinor: 500_000n,
+        vatMinor: 100_000n,
+        vatRate: "0.2000",
+      },
+    });
+
+    const raised = await raiseInvoice(actor, lotId, "buyer");
+    const queued = await queuedFor(raised.id);
+
+    expect(queued).toHaveLength(1);
+    expect(queued[0].userId).toBe(bidder.id);
+    expect(queued[0].sellerId).toBeNull();
+  });
+
+  it("queues nothing when the invoice is refused", async () => {
+    // Nothing due, so no invoice — and therefore no email about one.
+    // The enqueue is inside the transaction precisely so these cannot
+    // come apart.
+    const before = await prisma.outbox.count({ where: { template: "invoice_issued" } });
+    await expect(raiseInvoice(actor, lotId, "seller")).rejects.toThrow(InvoiceRefused);
+    expect(await prisma.outbox.count({ where: { template: "invoice_issued" } })).toBe(before);
   });
 });

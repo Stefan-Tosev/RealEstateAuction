@@ -93,10 +93,10 @@ plan is not silently rewritten to match what was actually done.
 
 ## What the assistant should pick up, when asked
 
-- **The e2e suite has not been run against today's change.** It adds a
-  public route, `/[locale]/invoices/[id]`, and the route is in the
-  warming list but has no spec. That is the largest open gap in the
-  invoice work.
+- **The invoice route now has a spec** (23 September):
+  `tests/e2e/invoice-link.spec.ts`, 8 cases, proven to fail when the
+  signature check is removed. The full e2e suite has still not been run
+  since the invoice-by-email merge — only this file.
 - The comment above `POLICY_VERSION` in `src/server/identity/terms.ts`
   is stale in its first half: it says the acceptance page must exist
   first, and it now does.
